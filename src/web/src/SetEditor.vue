@@ -99,7 +99,7 @@ function addCategory() {
               {{ definition.name }} <span v-if="library.data.activeSetId === definition.id" class="tag">Active</span>
             </button>
             <p v-if="definition.description" class="muted">{{ definition.description }}</p>
-            <p class="muted">{{ definition.categoryIds.length }} categories</p>
+            <p class="muted">{{ definition.categoryIds.length }} {{ definition.categoryIds.length === 1 ? 'category' : 'categories' }}</p>
           </li>
         </ul>
       </section>

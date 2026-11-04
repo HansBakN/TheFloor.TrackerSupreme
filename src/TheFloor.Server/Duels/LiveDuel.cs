@@ -98,6 +98,12 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
 public sealed class DuelTicker(DuelService duels, LiveDuel live, TimeProvider time, ILogger<DuelTicker> logger)
     : BackgroundService
 {
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await base.StopAsync(cancellationToken);
+        duels.SaveCheckpoint();
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(75), time);

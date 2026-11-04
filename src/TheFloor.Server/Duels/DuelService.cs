@@ -91,7 +91,17 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
         lock (gate)
         {
             Load();
-            return Settle(time.GetTimestamp(), forceCheckpoint: true);
+            var stamp = time.GetTimestamp();
+            return Settle(stamp, forceCheckpoint: time.GetElapsedTime(anchor, stamp) >= TimeSpan.FromMilliseconds(250));
+        }
+    }
+
+    public void SaveCheckpoint()
+    {
+        lock (gate)
+        {
+            Load();
+            Settle(time.GetTimestamp(), forceCheckpoint: true);
         }
     }
 
@@ -111,8 +121,7 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
         if (state is not { Status: DuelStatus.Running }) return state;
         var elapsed = time.GetElapsedTime(anchor, stamp);
         var updated = DuelRules.Settle(state, elapsed, time.GetUtcNow());
-        if (updated.Status == DuelStatus.Finished ||
-            forceCheckpoint && elapsed >= TimeSpan.FromMilliseconds(250))
+        if (updated.Status == DuelStatus.Finished || forceCheckpoint)
             Persist(updated, stamp);
         return updated;
     }

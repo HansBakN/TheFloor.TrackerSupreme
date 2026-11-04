@@ -123,6 +123,7 @@ public sealed class ContentTests : IDisposable
     [InlineData("/absolute.png")]
     [InlineData("a\\..\\escape.png")]
     [InlineData("file:stream.png")]
+    [InlineData("media/NUL.png")]
     public void UnsafePathsAreRejected(string relative) =>
         Assert.Throws<ContentException>(() => DataPaths.SafePath(paths.Root, relative));
 
@@ -132,6 +133,15 @@ public sealed class ContentTests : IDisposable
     [InlineData("name: &name x\ndescription: *name")]
     public void UnsafeYamlIsRejected(string yaml) =>
         Assert.Throws<ContentException>(() => ContentYaml.Read<Category>(System.Text.Encoding.UTF8.GetBytes(yaml)));
+
+    [Fact]
+    public void RejectsStorageInsideAGitCheckout()
+    {
+        var checkout = Path.Combine(paths.Root, "checkout");
+        Directory.CreateDirectory(Path.Combine(checkout, ".git"));
+        Assert.Throws<InvalidOperationException>(() => new DataPaths(Path.Combine(checkout, "event-data")));
+        Assert.False(Directory.Exists(Path.Combine(checkout, "event-data")));
+    }
 
     private static Category Category() => new()
     {
