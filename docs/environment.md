@@ -14,7 +14,7 @@ Verified on November 4, 2026, on macOS 15.6.1 (24G90), Apple Silicon (arm64). Th
 | SignalR | ASP.NET Core 10.0.12. A hub negotiation returned a connection ID and advertised WebSockets. |
 | EF Core and SQLite | NuGet restored `Microsoft.EntityFrameworkCore.Sqlite` 10.0.12. The server created a SQLite database, saved a row, and returned it through HTTP. The macOS SQLite CLI (3.43.2) read the same row. |
 | Frontend | Vite 8.3.5, React 19.3.1, TypeScript 7.0.2, Tailwind CSS and its Vite plugin 4.3.4. Type checking and the production build passed, and the compiled CSS contained the Tailwind utility used in the test. |
-| Playwright | `@playwright/test` 1.64.1 installed in the temporary frontend. Browser verification is recorded below. |
+| Playwright | `@playwright/test` 1.64.1 with Playwright-managed Chromium 156.0.8078.4. The interactive test below passed. |
 
 Use the Homebrew LTS runtime in each development shell:
 
@@ -33,7 +33,7 @@ Frontend packages belong in the future frontend project's local dependencies. Th
 - The authenticated account has repository admin access. Public repository creation, HTTPS push to `main`, workflow-file publication, issue creation and labeling, label creation and editing, and a repository settings update were exercised.
 - Issues and squash merging are enabled. At setup, `main` had no active ruleset rules or classic branch protection.
 - Labels include `feature`, `bug`, `enhancement`, `testing`, `documentation`, `infrastructure`, `priority:high`, and `blocked`.
-- [Verification issue #1](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/1) tracks the end-to-end exercise.
+- [Verification issue #1](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/1) tracks the end-to-end exercise. The CLI pushed the feature branch and opened [PR #2](https://github.com/HansBakN/TheFloor.TrackerSupreme/pull/2), which was accessible through the unauthenticated GitHub API.
 
 For subsequent work, start from current `main`, create a feature branch, and use Conventional Commit messages. Push the branch and open a PR targeting `main`. Use `Closes #N` in the PR description when it resolves an issue. Inspect the diff and require a successful validation check before squashing the PR. Delete the feature branch and fast-forward local `main`.
 
@@ -44,6 +44,8 @@ For subsequent work, start from current `main`, create a feature branch, and use
 ## Browser testing
 
 The desktop app's [browser documentation](https://learn.chatgpt.com/docs/browser) describes automated interaction with the built-in browser as Computer Use. This session used the Playwright fallback under the Computer Use restriction.
+
+Playwright opened a form on a temporary Node HTTP server bound to `127.0.0.1`, confirmed its initial state, filled the text input, clicked Submit, and asserted the updated status text in Chromium. The browser ran headless with Chromium's sandbox enabled. The temporary backend, frontend, database, and test files were removed. The Chromium download remains in the standard Playwright browser cache.
 
 ## Instructions for the next Codex session
 
