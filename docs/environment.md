@@ -1,6 +1,6 @@
 # Development environment
 
-Verified on November 4, 2026, on macOS 15.6.1 (24G90), Apple Silicon (arm64). This repository contains setup files. Application implementation is reserved for a separate session.
+Verified on November 4, 2026, on macOS 15.6.1 (24G90), Apple Silicon (arm64). The table below records the original environment smoke tests. The application now builds and runs from this repository.
 
 ## Tools and smoke tests
 
@@ -25,7 +25,17 @@ npm --version
 dotnet --version
 ```
 
-Frontend packages belong in the future frontend project's local dependencies. The smoke-test package versions above describe the tested environment.
+The application uses the Vue dependencies pinned in `src/web/package-lock.json`.
+
+## SharpLens MCP
+
+SharpLens 1.6.4 was verified with both projects in `TheFloor.slnx`. A live MCP health check reported a complete workspace, symbol search found `DuelService`, and reference analysis returned nine usages in server and test code. Method inspection returned `DuelService.Command`.
+
+Keep the server configuration in your local Codex user configuration. Set `mcp_servers.sharplens.env.DOTNET_SOLUTION_PATH` to the absolute path of `TheFloor.slnx` in your checkout. Use the locally installed SharpLens launcher and, when the SDK is installed in a nonstandard location, set `DOTNET_ROOT` and `DOTNET_HOST_PATH` in that same server environment. Keep these machine-specific values outside Git.
+
+Start a new Codex session to discover tools after changing the server configuration. If the server is already running, use `load_solution` to load the intended checkout and `health_check` to verify both projects loaded. Then try `search_symbols` and `find_references` on an application symbol. Use the normal .NET build and test workflow alongside semantic analysis.
+
+See the [Codex MCP configuration guide](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) and [SharpLens documentation](https://github.com/pzalutski-pixel/sharplens-mcp).
 
 ## GitHub workflow
 
@@ -55,6 +65,6 @@ Playwright opened a form on a temporary Node HTTP server bound to `127.0.0.1`, c
 2. Run `gh auth status --hostname github.com` and `gh repo view` with GitHub network access before relying on remote operations.
 3. Use the feature-branch workflow and keep credentials, local settings, databases, and generated files out of Git.
 4. Install Playwright in the frontend project, run `npx playwright install chromium` for the selected Playwright version, and exercise user flows against a loopback server.
-5. Extend the documentation check with .NET and frontend build and test jobs once implementation begins.
+5. Run the .NET, Vue, and Playwright checks described in the README before integrating changes.
 
 The managed shell blocked external DNS and opening a loopback listener under its default sandbox. Narrow command-level approval was used for network calls, Git metadata writes, package and browser-cache installation, and loopback smoke tests. In a future session these operations depend on that session's tool policy and the continued validity of the GitHub keyring login.
