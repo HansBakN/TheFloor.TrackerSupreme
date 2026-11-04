@@ -81,5 +81,18 @@ public sealed class ContentJournalTests : IDisposable
         Assert.False(Directory.Exists(stage));
     }
 
+    [Fact]
+    public void MalformedManifestDoesNotDiscardStagedData()
+    {
+        var journal = new ContentJournal(paths);
+        var stage = journal.CreateStage();
+        Directory.CreateDirectory(Path.Combine(stage, "plan.json"));
+        var stagedFile = Path.Combine(stage, "staged.yaml");
+        File.WriteAllText(stagedFile, "Keep pending content");
+
+        Assert.Throws<ContentConflict>(() => journal.Recover());
+        Assert.Equal("Keep pending content", File.ReadAllText(stagedFile));
+    }
+
     public void Dispose() => Directory.Delete(paths.Root, recursive: true);
 }

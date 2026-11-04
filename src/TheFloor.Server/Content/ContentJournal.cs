@@ -25,7 +25,7 @@ internal sealed class ContentJournal(DataPaths paths)
             var name = Path.GetFileName(stage);
             if (!Guid.TryParseExact(name[Prefix.Length..], "N", out _)) continue;
             var safe = DataPaths.SafePath(paths.State, name);
-            if (File.Exists(DataPaths.SafePath(safe, Manifest))) Apply(safe);
+            if (EntryPresent(DataPaths.SafePath(safe, Manifest))) Apply(safe);
             else DiscardUncommitted(safe);
         }
     }
@@ -58,7 +58,7 @@ internal sealed class ContentJournal(DataPaths paths)
 
     public static void DiscardUncommitted(string stage)
     {
-        if (Directory.Exists(stage) && !File.Exists(Path.Combine(stage, Manifest)))
+        if (Directory.Exists(stage) && !EntryPresent(Path.Combine(stage, Manifest)))
             Directory.Delete(stage, recursive: true);
     }
 
@@ -79,7 +79,7 @@ internal sealed class ContentJournal(DataPaths paths)
                 return;
             }
             case ContentStepKind.DeleteCategory when segments is ["library", "categories", _, "category.yaml"]:
-                if (!File.Exists(target)) return;
+                if (!EntryPresent(target)) return;
                 AtomicFiles.EnsureRevision(target, step.Before ?? throw new ContentConflict("A category revision is missing."));
                 if (!validateOnly) File.Delete(target);
                 return;
@@ -108,6 +108,19 @@ internal sealed class ContentJournal(DataPaths paths)
         if (!Matches(DataPaths.SafePath(source, definition), step.After))
             throw new ContentConflict($"The staged definition for '{step.Target}' changed or is missing.");
         if (!validateOnly) Directory.Move(source, target);
+    }
+
+    private static bool EntryPresent(string path)
+    {
+        try
+        {
+            File.GetAttributes(path);
+            return true;
+        }
+        catch (FileNotFoundException)
+        {
+            return false;
+        }
     }
 
     private static bool Matches(string path, string? revision) =>
