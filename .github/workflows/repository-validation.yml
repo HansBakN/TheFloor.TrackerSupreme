@@ -31,7 +31,8 @@ jobs:
 
   application:
     name: Application build and tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -54,7 +55,9 @@ jobs:
       - run: npm run typecheck && npm test
         working-directory: src/web
       - run: dotnet publish src/TheFloor.Server --no-restore --configuration Release --output artifacts/app
-      - run: npx playwright install --with-deps chromium
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
         working-directory: src/web
+        timeout-minutes: 4
       - run: npm run test:e2e
         working-directory: src/web
