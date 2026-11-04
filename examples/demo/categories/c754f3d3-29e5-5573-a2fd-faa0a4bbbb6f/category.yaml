@@ -1,0 +1,30 @@
+schemaVersion: 1
+id: c754f3d3-29e5-5573-a2fd-faa0a4bbbb6f
+name: "General Knowledge"
+description: "Original sample questions for local testing."
+questions:
+  - id: f1b89b21-aa8b-596a-b7ef-dd4bfb177044
+    type: text
+    prompt: "How many sides does a hexagon have?"
+    answer: "Six"
+    enabled: true
+  - id: 090dce4d-4d8e-5d2c-a31e-3d78ceca8ba5
+    type: text
+    prompt: "Which metal has the symbol Fe?"
+    answer: "Iron"
+    enabled: true
+  - id: b217959d-de78-5930-82cd-0c44b353d0bd
+    type: text
+    prompt: "What is the largest planet in the Solar System?"
+    answer: "Jupiter"
+    enabled: true
+  - id: a90bd734-8409-571f-9256-c517daf78bb3
+    type: text
+    prompt: "How many hours are in two days?"
+    answer: "48"
+    enabled: true
+  - id: 99942220-861f-53fc-91f6-fafc580645e0
+    type: text
+    prompt: "What instrument measures temperature?"
+    answer: "Thermometer"
+    enabled: true

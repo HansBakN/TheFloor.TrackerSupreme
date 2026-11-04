@@ -35,7 +35,10 @@ Category ZIP, self-contained set ZIP, and text-only JSON import and export are a
 
 Verified 41 xUnit tests, five Vitest tests, strict type checking, production publish, and six Playwright tests. The browser test imports a downloaded ZIP into a second server with a clean data directory, then tests the independent-copy option on a collision.
 
+## Demo content
+
+The published app includes opt-in original sample content. Run `dotnet TheFloor.Server.dll --load-demo` before launching the server. Both demo sets share categories, and repeated loading reuses identical definitions. The xUnit suite validates the example YAML, relationships, and image media during CI.
+
 ## Remaining work and resume order
 
-1. Add opt-in sample content (#26).
-2. Finish visual polish (#25), testing and CI (#27–#30), documentation (#31), and final acceptance (#32). Add an actual server restart workflow and verify a full offline session from a published build.
+1. Finish visual and workflow checks (#25, #27–#29), deployment documentation (#31), and final acceptance (#32). Add an actual server restart workflow and verify a full offline session from a published build.

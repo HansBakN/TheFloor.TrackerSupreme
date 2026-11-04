@@ -1,0 +1,30 @@
+schemaVersion: 1
+id: 02cf7825-f13a-5d14-88f8-b2883bf745e3
+name: "Geography"
+description: "Original sample questions for local testing."
+questions:
+  - id: 96995f71-579b-5b24-b785-54b31a033751
+    type: text
+    prompt: "What is the capital of Denmark?"
+    answer: "Copenhagen"
+    enabled: true
+  - id: ed609884-63bf-569d-b1f6-198861576b81
+    type: text
+    prompt: "On which continent is Kenya?"
+    answer: "Africa"
+    enabled: true
+  - id: daf8330c-4fb5-5fea-8333-8dc0e941a966
+    type: text
+    prompt: "Which ocean lies between Japan and California?"
+    answer: "Pacific Ocean"
+    enabled: true
+  - id: 269ffb27-0f5f-5fd9-bffc-cc3a34b6a9d6
+    type: text
+    prompt: "Which country is directly north of Germany?"
+    answer: "Denmark"
+    enabled: true
+  - id: 1d87f5f1-30cb-5752-af03-d458acdc84ce
+    type: text
+    prompt: "Which city is the capital of Slovenia?"
+    answer: "Ljubljana"
+    enabled: true

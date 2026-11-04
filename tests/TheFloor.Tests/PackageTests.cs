@@ -10,6 +10,21 @@ public sealed class PackageTests : IDisposable
     private readonly string root = Path.Combine(Path.GetTempPath(), "thefloor-packages", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public void BundledDemoSetsAreValidIdempotentAndShareCategories()
+    {
+        var (library, packages) = Create("demo");
+        var directory = Path.Combine(AppContext.BaseDirectory, "demo");
+        Assert.Equal(2, DemoContent.Load(directory, packages));
+        Assert.Equal(2, DemoContent.Load(directory, packages));
+        var view = library.View();
+        Assert.Empty(view.Errors);
+        Assert.Equal(4, view.Categories.Length);
+        Assert.Equal(2, view.Sets.Length);
+        Assert.Equal(2, view.Sets[0].Definition.CategoryIds.Intersect(view.Sets[1].Definition.CategoryIds).Count());
+        Assert.Contains(view.Categories, c => c.Definition.Name == "Demo Image Recognition");
+    }
+
+    [Fact]
     public void SetZipIsPortableAndIdenticalCategoriesAreReused()
     {
         var (source, export) = Create("source");

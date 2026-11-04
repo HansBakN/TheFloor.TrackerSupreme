@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: efb6c99c-4438-51af-acca-30415a4a1d0f
+name: "Demo Set B"
+description: "Opt-in development example."
+categoryIds:
+  - c754f3d3-29e5-5573-a2fd-faa0a4bbbb6f
+  - 02cf7825-f13a-5d14-88f8-b2883bf745e3
+  - 5e5506b3-06fa-56a7-b977-c6b173fc9c4d
