@@ -72,3 +72,14 @@ The follow-up audit reread all 29 sections and all 80 acceptance steps. [Issue #
 | 27–29 · Acceptance and handoff | The release acceptance table above maps A–G to the test suites. The audit adds coverage for switching the active set during a duel and completing a naturally expired duel entirely through the browser. |
 
 The tests use isolated storage and Chromium. The audience layout was inspected at 1920×1080. Physical TV and projector hardware and sudden power loss are outside the verification setup. A forced process stop restores the last durable timer checkpoint. Definition writes are atomic per file. Category deletion removes set references before deleting the category definition. Set imports install categories before publishing the set definition.
+
+
+## Event tools and recovery
+
+[Issues #44–#48](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues?q=is%3Aissue+%2344+OR+%2345+OR+%2346+OR+%2347+OR+%2348) track rehearsal and active-set checks, pairing and a single audio output, browser-local setup presets, content recovery, and checkpoint optimization.
+
+The checkpoint profile serialized synthetic decks with a 250-character prompt, 80-character answer, two alternatives, and 150-character notes per question. On the development Mac, 20, 200, and 1,000 questions produced 14,595, 135,015, and 670,215 bytes per old checkpoint. The 1,000-question sample took about 1.22 ms per serialization across 200 iterations. The same session without its question deck was 551 bytes and about 0.002 ms per serialization. These measurements cover serialization and payload size. They do not measure SQLite disk throughput.
+
+SQLite now stores the deck separately and upgrades an existing inline deck when it loads the current duel. The content journal resumes interrupted set imports and shared category deletions, and stops on a conflicting external edit so the edit can be preserved.
+
+Local verification passed 55 xUnit tests, 11 Vitest tests, and nine Playwright workflows. The new browser workflow verifies preset persistence and application, a locally rendered QR code, one designated audio display across separate contexts, missing-media diagnostics, and fullscreen and volume controls on the separate rehearsal view. It verifies that the live duel version and question remain unchanged by rehearsal. Recovery tests replay partially applied operations and preserve conflicting external edits. The SQLite upgrade test starts with an inline deck and verifies that later checkpoints leave the stored deck intact.
