@@ -108,3 +108,8 @@ Text-only categories without a cover can use JSON. The JSON file is one category
 ## Backup and transfer
 
 Stop the server and copy the entire external data directory, including `library`, `sets`, and `state`, to a separate location. To restore, stop the destination server, move its current data directory aside, and copy the backup into the configured data location before starting. Copying the entire directory preserves set selection, saved duel state, and snapshot media. Use a set ZIP when transferring just one event's content.
+
+
+## Interrupted operations
+
+The server resumes an interrupted set import or shared category deletion from its recovery plan in `state`. It applies only steps that still match their expected revisions and checks already applied steps before continuing. If an external edit conflicts, the library shows the affected path and pauses writes. Preserve your edited copy separately, reconcile the file with the staged operation, and select **Reload files**. Back up the whole data root before manually moving or editing recovery files.

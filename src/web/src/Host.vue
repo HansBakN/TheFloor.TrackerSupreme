@@ -3,6 +3,8 @@ import { computed, reactive, ref } from 'vue'
 import { message } from './api'
 import { useClocks } from './clocks'
 import type { Configuration, DuelAction, Player } from './contracts'
+import AudienceSetup from './AudienceSetup.vue'
+import DuelPresets from './DuelPresets.vue'
 import LibraryStatus from './LibraryStatus.vue'
 import { useLibraryUpdates } from './library'
 import { useLiveDuel } from './live'
@@ -72,6 +74,7 @@ useShortcuts(can, command)
           {{ live.status === 'live' ? live.audienceCount + (live.audienceCount === 1 ? ' display connected' : ' displays connected') : 'Connecting…' }}
         </span>
         <a class="button" href="/display" target="_blank" rel="noopener">Open audience display</a>
+        <RouterLink class="button" to="/rehearsal">Rehearsal</RouterLink>
         <button type="button" @click="toggleFullscreen">Toggle fullscreen</button>
       </div>
     </header>
@@ -99,6 +102,7 @@ useShortcuts(can, command)
           <option value="shuffled">Shuffled</option><option value="ordered">Category order</option>
         </select></label>
       </div>
+      <DuelPresets :options="setup" @apply="Object.assign(setup, $event)" />
       <button class="primary" :disabled="!readyToPrepare">Prepare duel</button>
     </form>
 
@@ -152,5 +156,6 @@ useShortcuts(can, command)
         </div>
       </details>
     </section>
+    <div class="mt-3"><AudienceSetup :audience="live.audience" /></div>
   </main>
 </template>

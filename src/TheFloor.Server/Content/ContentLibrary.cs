@@ -6,6 +6,7 @@ public sealed class ContentLibrary(DataPaths paths, IDbContextFactory<AppDb> dat
 {
     private sealed record Stored<T>(string Path, ContentEntry<T> Entry);
     private readonly object gate = new();
+    internal ContentJournal Journal { get; } = new(paths);
     private Dictionary<Guid, Stored<Category>> categories = [];
     private Dictionary<Guid, Stored<CategorySet>> sets = [];
     private string[] errors = [];
@@ -128,25 +129,29 @@ public sealed class ContentLibrary(DataPaths paths, IDbContextFactory<AppDb> dat
             throw new ContentConflict("The referencing sets changed. Reload and confirm deletion again.");
 
         foreach (var set in referencing) AtomicFiles.EnsureRevision(set.Path, set.Entry.Revision);
-        var changed = new Stack<(Stored<CategorySet> Set, string Revision)>();
+        var stage = Journal.CreateStage();
         try
         {
+            var steps = new List<ContentStep>();
             foreach (var set in referencing)
             {
                 var updated = set.Entry.Definition with
                 {
                     CategoryIds = set.Entry.Definition.CategoryIds.Where(reference => reference != id).ToArray(),
                 };
-                changed.Push((set, WriteDefinition(set.Path, updated, set.Entry.Revision)));
+                var bytes = ContentYaml.WriteBounded(updated);
+                var source = $"set-{steps.Count}.yaml";
+                AtomicFiles.Write(DataPaths.SafePath(stage, source), bytes);
+                steps.Add(new ContentStep(ContentStepKind.ReplaceSet, RelativeToRoot(set.Path),
+                    source, set.Entry.Revision, AtomicFiles.Revision(bytes)));
             }
-            AtomicFiles.EnsureRevision(stored.Path, revision);
-            File.Delete(stored.Path);
+            steps.Add(new ContentStep(ContentStepKind.DeleteCategory, RelativeToRoot(stored.Path), null, revision, null));
+            Journal.WritePlan(stage, steps);
+            Journal.Apply(stage);
         }
-        catch
+        finally
         {
-            while (changed.TryPop(out var change))
-                WriteDefinition(change.Set.Path, change.Set.Entry.Definition, change.Revision);
-            throw;
+            ContentJournal.DiscardUncommitted(stage);
         }
         Scan();
         return true;
@@ -219,6 +224,7 @@ public sealed class ContentLibrary(DataPaths paths, IDbContextFactory<AppDb> dat
         var nextDuplicateSets = new HashSet<Guid>();
         try
         {
+            Journal.Recover();
             var nextCategories = ScanDefinitions(paths.Categories, "category.yaml", categories, c => c.Id,
                 ValidateCategory, nextDuplicateCategories, diagnostics);
             var nextSets = ScanDefinitions(paths.Sets, "set.yaml", sets, s => s.Id,
@@ -323,6 +329,8 @@ public sealed class ContentLibrary(DataPaths paths, IDbContextFactory<AppDb> dat
         AtomicFiles.Write(path, bytes, revision);
         return AtomicFiles.Revision(bytes);
     }
+
+    private string RelativeToRoot(string path) => Path.GetRelativePath(paths.Root, path).Replace(Path.DirectorySeparatorChar, '/');
 
     private static string CopyName(string name) => name[..Math.Min(143, name.Length)] + " (copy)";
 }

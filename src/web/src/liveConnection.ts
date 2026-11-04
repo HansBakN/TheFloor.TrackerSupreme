@@ -2,6 +2,11 @@ import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { request } from './api'
 import type { AudienceDuel, HostState } from './contracts'
 
+// getRandomValues also works on a display served over HTTP on the LAN.
+const idHex = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
+export const displayId = [idHex.slice(0, 8), idHex.slice(8, 12), idHex.slice(12, 16), idHex.slice(16, 20), idHex.slice(20)].join('-')
+export const displayName = 'DISPLAY ' + idHex.slice(0, 6).toUpperCase()
+
 export type Role = 'host' | 'audience'
 export type ConnectionStatus = 'connecting' | 'live' | 'reconnecting'
 export type LiveUpdate = { role: 'host'; state: HostState } | { role: 'audience'; state: AudienceDuel | null }
@@ -13,7 +18,7 @@ export function openLiveConnection(
 ) {
   const lifetime = new AbortController()
   const connection = new HubConnectionBuilder()
-    .withUrl('/live?role=' + role)
+    .withUrl('/live?role=' + role + (role === 'audience' ? '&displayId=' + displayId : ''))
     .configureLogging(LogLevel.None)
     .build()
   let timer: number | undefined

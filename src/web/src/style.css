@@ -140,3 +140,7 @@ label { display: grid; gap: .35rem; font-weight: 600; }
   .editor-grid { grid-template-columns: 1fr; }
   .editor-list { position: static; }
 }
+
+.pairing-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; align-items: start; }
+.pairing-grid img { border-radius: .4rem; background: white; }
+@media (max-width: 640px) { .pairing-grid { grid-template-columns: minmax(0, 1fr); } }

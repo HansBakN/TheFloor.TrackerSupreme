@@ -32,6 +32,14 @@ Manage text, image, and audio questions from the category editor. The [content f
 
 Use **Export set ZIP** to share an entire event, or **Export category ZIP** for a single category and its media. Import a package from the matching editor. The [content format guide](docs/content-format.md#backup-and-transfer) explains full backups and restores.
 
+## Rehearse and pair displays
+
+Open **Rehearsal** from the host dashboard to check the active set and preview a question on a separate device. The rehearsal link has its own volume and fullscreen controls. End the rehearsal to clear that preview.
+
+Under **Pair displays and choose audio**, copy the display link or scan the QR code. For another device, use the server’s LAN address as described in the [deployment guide](docs/deployment.md#start-the-server). Match the display code at the top of the audience screen to the **Audio output display** list. Automatic mode plays audio on one connected display. If a specifically selected display disconnects, choose another display or return to automatic mode.
+
+Open **Duel presets** in setup to save or apply clock, pass penalty, starting-player, and question-order settings. Presets are stored in the host browser.
+
 ## Optional demo content
 
 From `artifacts/app`, run `dotnet TheFloor.Server.dll --load-demo` with the server stopped. This loads the bundled examples into the configured external data directory and exits. Start the app and select **Demo Set A** or **Demo Set B** under **Category sets**. The demo sets share General Knowledge and Demo Image Recognition. The loader keeps existing content and reports UUID conflicts.
