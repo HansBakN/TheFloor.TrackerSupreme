@@ -28,3 +28,33 @@ jobs:
             fi
           done
           grep -Fq '(docs/environment.md)' README.md
+
+  application:
+    name: Application build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - run: dotnet restore --locked-mode
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet test --no-build --configuration Release
+      - run: npm ci
+        working-directory: src/web
+      - run: npm run typecheck && npm test
+        working-directory: src/web
+      - run: dotnet publish src/TheFloor.Server --no-restore --configuration Release --output artifacts/app
+      - run: npx playwright install --with-deps chromium
+        working-directory: src/web
+      - run: npm run test:e2e
+        working-directory: src/web

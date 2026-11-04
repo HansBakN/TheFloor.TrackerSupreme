@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <FrontendDirectory>$(MSBuildProjectDirectory)/../web</FrontendDirectory>
+  </PropertyGroup>
+  <Target Name="PublishFrontend" AfterTargets="ComputeFilesToPublish">
+    <Exec WorkingDirectory="$(FrontendDirectory)" Command="npm ci" />
+    <Exec WorkingDirectory="$(FrontendDirectory)" Command="npm run build" />
+    <ItemGroup>
+      <FrontendFiles Include="$(FrontendDirectory)/dist/**/*" />
+      <ResolvedFileToPublish Include="@(FrontendFiles)">
+        <RelativePath>wwwroot/%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>
