@@ -61,6 +61,7 @@ test('rehearses on a separate display, selects one audio output, and saves reusa
     const firstDisplay = await first.newPage()
     const secondDisplay = await second.newPage()
     await firstDisplay.goto('/display')
+    await expect(firstDisplay.locator('audio')).toHaveCount(1)
     await secondDisplay.goto('/display')
     await expect(page.getByText('2 displays connected', { exact: true })).toBeVisible()
     await expect(firstDisplay.locator('audio')).toHaveCount(1)
