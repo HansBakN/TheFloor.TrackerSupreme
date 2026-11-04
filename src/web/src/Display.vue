@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useClocks } from './clocks'
 import { useLiveDuel } from './live'
+import { displayId, displayName } from './liveConnection'
 import QuestionMedia from './QuestionMedia.vue'
 import Scoreboard from './Scoreboard.vue'
 
@@ -14,7 +15,7 @@ const winner = computed(() => duel.value?.winner === 'a' ? duel.value.playerA : 
 <template>
   <main class="arena">
     <div class="arena-meta">
-      <p class="eyebrow">Quiz duel</p>
+      <p class="eyebrow">Quiz duel · {{ displayName }}</p>
       <p v-if="live.status !== 'live'" role="status" class="connection">Connecting to the game…</p>
     </div>
     <template v-if="duel">
@@ -27,7 +28,7 @@ const winner = computed(() => duel.value?.winner === 'a' ? duel.value.playerA : 
       <div v-else class="arena-question">
         <p v-if="duel.status === 'paused'" class="pause-badge" role="status">Paused</p>
         <p v-else-if="duel.status === 'ready'" class="pause-badge" role="status">Ready to start</p>
-        <QuestionMedia v-if="duel.question" :question="duel.question" audience :playing="duel.status === 'running'" />
+        <QuestionMedia v-if="duel.question" :question="duel.question" audience :playing="duel.status === 'running'" :audio-allowed="duel.audioDisplayId === displayId" />
         <h2 v-else>Waiting for the next question</h2>
       </div>
     </template>

@@ -58,6 +58,7 @@ export interface AudienceDuel {
   winner: Player | null
   question: PublicQuestion | null
   sampledAt: number
+  audioDisplayId?: string | null
 }
 export interface HostDuel {
   duel: AudienceDuel
@@ -69,4 +70,11 @@ export interface HostDuel {
   canUndo: boolean
   exhausted: boolean
 }
-export interface HostState { session: HostDuel | null; audienceCount: number }
+export interface AudienceStatus {
+  displays: { id: string; name: string }[]
+  selectedAudioDisplayId: string | null
+  audioDisplayId: string | null
+}
+export interface HostState { session: HostDuel | null; audienceCount: number; audience?: AudienceStatus }
+
+export interface RehearsalPreview { id: string; categoryName: string; question: PublicQuestion }

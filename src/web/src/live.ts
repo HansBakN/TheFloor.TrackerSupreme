@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { json, message, request } from './api'
-import type { AudienceDuel, Configuration, DuelAction, HostDuel, HostState, Player } from './contracts'
+import type { AudienceDuel, AudienceStatus, Configuration, DuelAction, HostDuel, HostState, Player } from './contracts'
 import { openLiveConnection } from './liveConnection'
 import type { ConnectionStatus, LiveUpdate, Role } from './liveConnection'
 
@@ -11,6 +11,7 @@ export const useLive = defineStore('live', () => {
   const sample = shallowRef<ClockSample>()
   const host = shallowRef<HostDuel>()
   const audienceCount = ref(0)
+  const audience = shallowRef<AudienceStatus>()
   const status = ref<ConnectionStatus>('connecting')
   const pending = ref(false)
   const error = ref('')
@@ -29,6 +30,7 @@ export const useLive = defineStore('live', () => {
     sample.value = duel ? { duel, receivedAt: performance.now() } : undefined
     host.value = update.role === 'host' ? update.state.session ?? undefined : undefined
     audienceCount.value = update.role === 'host' ? update.state.audienceCount : 0
+    audience.value = update.role === 'host' ? update.state.audience : undefined
   }
 
   function connect(role: Role) {
@@ -38,6 +40,7 @@ export const useLive = defineStore('live', () => {
     sample.value = undefined
     host.value = undefined
     audienceCount.value = 0
+    audience.value = undefined
     pending.value = false
     error.value = ''
     const current = openLiveConnection(role, receive, next => { status.value = next })
@@ -85,7 +88,7 @@ export const useLive = defineStore('live', () => {
     })
   }
 
-  return { sample, host, audienceCount, status, pending, error, connect, prepare, command }
+  return { sample, host, audienceCount, audience, status, pending, error, connect, prepare, command }
 })
 
 export function useLiveDuel(role: Role) {
