@@ -131,7 +131,9 @@ public static class DuelEndpoints
     public static void MapDuel(this WebApplication app)
     {
         app.MapHub<DuelHub>("/live");
-        app.MapGet("/api/display/state", (LiveDuel live) => Results.Json(live.Audience()));
+        app.MapGet("/api/display/state", (LiveDuel live) => live.Audience() is { } state
+            ? Results.Json(state)
+            : Results.Text("null", "application/json"));
         app.MapGet("/api/display/{id:guid}/media/{question:guid}", (Guid id, Guid question, DuelService service) =>
         {
             var file = service.CurrentMedia(id, question);

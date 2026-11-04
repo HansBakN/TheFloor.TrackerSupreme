@@ -5,6 +5,8 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // One local server intentionally supports only one duel at a time.
+  workers: 1,
   use: { baseURL: 'http://127.0.0.1:5088', trace: 'retain-on-failure' },
   webServer: {
     env: { THEFLOOR_DATA_DIR: mkdtempSync(join(tmpdir(), 'thefloor-playwright-')) },

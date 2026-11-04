@@ -35,6 +35,10 @@ test('audience receives a restricted projection and observes server-side expirat
     expect(finished.winner).toBe('b')
     expect(finished.aMilliseconds).toBe(0)
     expect(finished.bMilliseconds).toBe(1000)
+    expect((await request.post('/api/host/command', { data: {
+      ...command, version: finished.version, commandId: crypto.randomUUID(), action: 'return',
+    } })).ok()).toBeTruthy()
+    expect(await (await audience.get('/api/display/state')).json()).toBeNull()
   } finally {
     await audience.dispose()
   }
