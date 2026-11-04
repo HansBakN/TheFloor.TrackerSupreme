@@ -1,0 +1,30 @@
+name: Repository validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    name: Required documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check setup files
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in README.md LICENSE docs/environment.md; do
+            if [[ ! -s "$file" ]]; then
+              echo "::error file=$file::Required file is missing or empty"
+              exit 1
+            fi
+          done
+          grep -Fq '(docs/environment.md)' README.md

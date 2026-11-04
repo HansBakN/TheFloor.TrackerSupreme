@@ -1,0 +1,37 @@
+# .NET and IDE output
+[Bb]in/
+[Oo]bj/
+artifacts/
+TestResults/
+.vs/
+.idea/
+*.user
+*.suo
+
+# Node and Vite output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+
+# Playwright output
+playwright-report/
+playwright/.cache/
+playwright/.auth/
+test-results/
+blob-report/
+
+# Local settings and data
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+.DS_Store
