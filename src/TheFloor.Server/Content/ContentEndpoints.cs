@@ -5,6 +5,7 @@ public static class ContentEndpoints
     public static void MapContent(this WebApplication app)
     {
         var group = app.MapGroup("/api/library");
+        group.MapPackages();
         group.MapGet("/", (ContentLibrary library) => library.View());
         group.MapPost("/reload", (ContentLibrary library) => library.View(refresh: true));
         group.MapPut("/categories/{id:guid}", (Guid id, Save<Category> request, ContentLibrary library) =>

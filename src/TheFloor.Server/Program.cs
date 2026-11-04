@@ -10,6 +10,7 @@ var paths = DataPaths.FromEnvironment();
 builder.Services.AddSingleton(paths);
 builder.Services.AddDbContextFactory<AppDb>(options => AppDb.Configure(options, paths));
 builder.Services.AddSingleton<ContentLibrary>();
+builder.Services.AddSingleton<ContentPackages>();
 builder.Services.AddSingleton<LocalHostAccess>();
 builder.Services.AddHostedService<ContentWatcher>();
 builder.Services.AddSingleton(TimeProvider.System);

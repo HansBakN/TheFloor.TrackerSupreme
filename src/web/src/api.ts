@@ -1,9 +1,15 @@
 let signingIn: Promise<void> | undefined
 
+export class ApiError extends Error {
+  constructor(readonly status: number, description: string) {
+    super(description)
+  }
+}
+
 async function check(response: Response) {
   if (response.ok) return response
   const problem = await response.json().catch(() => null) as { error?: string } | null
-  throw new Error(problem?.error ?? `Request failed (${response.status}).`)
+  throw new ApiError(response.status, problem?.error ?? `Request failed (${response.status}).`)
 }
 
 async function localHost() {

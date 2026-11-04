@@ -62,3 +62,49 @@ Each category UUID needs a corresponding category definition. A second set can i
 ## Editing safely
 
 Save files as UTF-8. The application watches the category and set directories and reports validation errors. A running process retains its last valid version of a definition if an external edit makes it unreadable. Reload after correcting the file. If the UI reports that a file changed while you were editing, reload its latest version before reapplying the edit.
+
+## Portable packages
+
+In **Category sets**, choose **Export set ZIP** to create a self-contained package. In **Categories**, choose **Export category ZIP** to share one category with its media. Import the file from the matching editor.
+
+A category ZIP has `category.yaml` and the relative media paths referenced by the definition. A set ZIP uses this structure:
+
+```text
+set.yaml
+categories/
+  8ecaf3a0-742d-4acf-8dad-896f6bbc9b1e/
+    category.yaml
+    images/cover.png
+    images/tower.jpg
+    audio/bicycle-bell.ogg
+  26475b62-549f-456c-a516-63d5ea16aadd/
+    category.yaml
+```
+
+Category directory names inside a set ZIP match the lowercase UUIDs in `set.yaml`. Include each referenced category and all media referenced by its cover or questions. The application rejects unsafe paths, symbolic links, case-insensitive duplicate entries, and unexpected files. ZIP packages are limited to 128 MiB compressed and expanded, with at most 10,000 entries. The per-definition limit is 4 MiB and the per-media-file limit is 24 MiB.
+
+An import reuses a category only when its definition and referenced media are identical. For an ID conflict, the editor offers **Import independent copies**. The importer assigns new UUIDs to conflicting categories and their questions and remaps the imported set's references. The original definitions and media stay in the library.
+
+Text-only categories without a cover can use JSON. The JSON file is one category object with the same field names and schema version as YAML.
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "26475b62-549f-456c-a516-63d5ea16aadd",
+  "name": "Capitals",
+  "questions": [
+    {
+      "id": "93dc6ed4-b264-4c5f-a3e3-b55af2d675fa",
+      "type": "text",
+      "prompt": "What is the capital of Denmark?",
+      "answer": "Copenhagen",
+      "alternatives": ["København"],
+      "enabled": true
+    }
+  ]
+}
+```
+
+## Backup and transfer
+
+Stop the server and copy the entire external data directory, including `library`, `sets`, and `state`, to a separate location. To restore, stop the destination server, move its current data directory aside, and copy the backup into the configured data location before starting. Copying the entire directory preserves set selection, saved duel state, and snapshot media. Use a set ZIP when transferring just one event's content.

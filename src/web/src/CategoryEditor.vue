@@ -5,6 +5,7 @@ import { categoryMedia, json, request } from './api'
 import type { Category, Entry, Question } from './contracts'
 import { moveItem, useDraft, useEditorAction } from './editor'
 import LibraryStatus from './LibraryStatus.vue'
+import PackageImport from './PackageImport.vue'
 import { useLibraryUpdates } from './library'
 import QuestionMedia from './QuestionMedia.vue'
 
@@ -58,6 +59,11 @@ async function goTo(categoryId: string) {
   } finally {
     internalNavigation = false
   }
+}
+
+function openImported(categoryId: string) {
+  if (categoryId === id.value || !confirmDiscard()) return
+  void goTo(categoryId)
 }
 
 async function create() {
@@ -163,6 +169,7 @@ async function remove() {
           <label>New category name<input v-model="newName" required maxlength="150"></label>
           <button class="primary" :disabled="busy">Create category</button>
         </form>
+        <PackageImport kind="categories" @imported="openImported" />
         <label>Search categories<input v-model="search" type="search"></label>
         <p v-if="!categoryResults.length" class="muted">No matching categories.</p>
         <ul class="entry-list">
@@ -243,6 +250,11 @@ async function remove() {
           </fieldset>
         </form>
         <hr>
+        <div v-if="entry" class="actions">
+          <a class="button" :href="'/api/library/categories/' + id + '/export'" download>Export category ZIP</a>
+          <a v-if="!entry.definition.coverImage && entry.definition.questions.every(q => q.type === 'text')"
+             class="button" :href="'/api/library/categories/' + id + '/export.json'" download>Export text JSON</a>
+        </div>
         <h3 class="eyebrow">Category set membership</h3>
         <p class="muted">Every set that includes this category sees edits to its questions and media.</p>
         <p v-if="!library.data.sets.length" class="muted">Create a category set to use this category in a duel.</p>

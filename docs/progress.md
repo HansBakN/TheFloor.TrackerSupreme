@@ -29,7 +29,13 @@ The /sets and /categories pages provide shared membership, ordering, active-set 
 
 Local checks passed 32 xUnit tests, five Vitest tests, strict type checking, production publish, and five Playwright tests. The editor browser workflow verified shared edits, external revision conflicts, active selection, PNG display, and WAV playback in an independent audience context.
 
+## Portable content
+
+Category ZIP, self-contained set ZIP, and text-only JSON import and export are available in both editors. Imports validate archive sizes, paths, definitions, and media before installing. Identical categories are reused. Explicit independent import remaps conflicting UUIDs and keeps existing files.
+
+Verified 41 xUnit tests, five Vitest tests, strict type checking, production publish, and six Playwright tests. The browser test imports a downloaded ZIP into a second server with a clean data directory, then tests the independent-copy option on a collision.
+
 ## Remaining work and resume order
 
-1. Complete portable ZIP and text-only JSON interchange with collision handling (#15–#16). Add import and export controls to the existing set and category editors to finish #13 and #14.
-2. Add opt-in sample content (#26). Finish visual polish (#25), testing and CI (#27–#30), documentation (#31), and final acceptance (#32).
+1. Add opt-in sample content (#26).
+2. Finish visual polish (#25), testing and CI (#27–#30), documentation (#31), and final acceptance (#32). Add an actual server restart workflow and verify a full offline session from a published build.

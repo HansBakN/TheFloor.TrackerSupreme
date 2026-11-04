@@ -5,6 +5,7 @@ import { json } from './api'
 import type { CategorySet, Entry } from './contracts'
 import { moveItem, useDraft, useEditorAction } from './editor'
 import LibraryStatus from './LibraryStatus.vue'
+import PackageImport from './PackageImport.vue'
 import { useLibraryUpdates } from './library'
 
 const library = useLibraryUpdates()
@@ -90,6 +91,7 @@ function addCategory() {
           <label>New set name<input v-model="newName" maxlength="150" required></label>
           <button class="primary" :disabled="busy">Create set</button>
         </form>
+        <PackageImport kind="sets" @imported="select" />
         <p v-if="!library.data.sets.length" class="muted">Create a set to start organizing categories.</p>
         <ul class="entry-list">
           <li v-for="{ definition } in library.data.sets" :key="definition.id" :class="{ selected: definition.id === selected }">
@@ -145,6 +147,7 @@ function addCategory() {
           <label class="check"><input v-model="independent" type="checkbox"> Copy categories independently</label>
           <button type="button" :disabled="busy || stale" @click="duplicate">Duplicate set</button>
           <button type="button" :disabled="busy || stale" @click="remove">Delete set</button>
+          <a v-if="entry" class="button" :href="'/api/library/sets/' + selected + '/export'" download>Export set ZIP</a>
         </div>
         <p class="muted">A duplicate normally references the same categories. Choose independent copies to edit the duplicates separately.</p>
       </section>
