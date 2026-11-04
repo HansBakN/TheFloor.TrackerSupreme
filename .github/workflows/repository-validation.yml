@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: repository-validation-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   documentation:
     name: Required documentation
@@ -30,9 +34,13 @@ jobs:
           grep -Fq '(docs/environment.md)' README.md
 
   application:
-    name: Application build and tests
-    runs-on: ubuntu-24.04
+    name: Application build and tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -55,8 +63,8 @@ jobs:
       - run: npm run typecheck && npm test
         working-directory: src/web
       - run: dotnet publish src/TheFloor.Server --no-restore --configuration Release --output artifacts/app
-      - name: Install Chromium and system dependencies
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
         working-directory: src/web
         timeout-minutes: 4
       - run: npm run test:e2e
