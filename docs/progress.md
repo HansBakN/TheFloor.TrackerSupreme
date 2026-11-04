@@ -56,3 +56,19 @@ The published app was verified on macOS using 46 xUnit cases, 10 Vitest cases, a
 Visual inspection covered the paused 1920×1080 display, the 1280×720 host controls, and the category-set editor. A graceful shutdown saves the latest clock state. A forced stop recovers the last durable periodic checkpoint.
 
 The full startup and offline deployment instructions are in the [README](../README.md) and [deployment guide](deployment.md). See the [content format guide](content-format.md) for data locations, YAML and package examples, and backup and restore.
+
+## Full specification audit
+
+The follow-up audit reread all 29 sections and all 80 acceptance steps. [Issue #42](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/42) tracks the gaps found and resolved. The specification is preserved byte for byte.
+
+| Specification sections | Implementation and evidence |
+| --- | --- |
+| 1–3 · Environment, stack, offline and scope | The locked .NET 10 and Vue 3 build produces one offline server. The production and recovery workflows check local assets and the standalone duel scope. |
+| 4–8 · Content model, storage, samples and editors | Content and media tests verify shared UUIDs, duplication, safe paths, format validation and example YAML. Browser tests exercise question editing, a 20-image category, sharing, set activation, invalid YAML recovery and persistence. The audit added public-web-root isolation and tests for temporary library unavailability. |
+| 9 · Portability | Package tests cover category and set ZIPs, text JSON, media, archive limits and remapped collisions. The browser imports a complete set into a second installation. The audit checks ambiguous IDs, stale cached sets and the size of the resulting YAML before installation. |
+| 10–13 · Setup, rules, snapshots and host | Fake-time tests exercise the state machine, penalties, undo, exhaustion, duplicate commands and deadlines. Chromium verifies the host controls at laptop size and the full Correct/Pass/Correct sequence. The audit adds a guard for repeat answer input after a fast response. |
+| 14–18 · Display, synchronization, persistence and reliability | Separate browser contexts inspect actual role-specific hub frames, reconnect the display, switch sets while a duel is running, and verify natural expiry and return to setup. The restart workflow and fake-time tests verify paused recovery and preservation of the question and media. |
+| 19–26 · Workflow, CI, tests and documentation | Issues and reviewed PRs track changes through Linux and Windows CI. The README, environment, architecture, progress, deployment and format guides document the integrated app. |
+| 27–29 · Acceptance and handoff | The release acceptance table above maps A–G to the test suites. The audit adds coverage for switching the active set during a duel and completing a naturally expired duel entirely through the browser. |
+
+The tests use isolated storage and Chromium. The audience layout was inspected at 1920×1080. Physical TV and projector hardware and sudden power loss are outside the verification setup. A forced process stop restores the last durable timer checkpoint. Definition writes are atomic per file. Category deletion removes set references before deleting the category definition. Set imports install categories before publishing the set definition.
