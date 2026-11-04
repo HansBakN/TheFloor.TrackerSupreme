@@ -17,11 +17,14 @@ Development resumed from the duel backend checkpoint on November 4, 2026. [GitHu
 
 SharpLens MCP was verified against both solution projects. See [development environment](environment.md) for local configuration.
 
+## Live Vue interfaces
+
+The host and display routes use separate role-specific SignalR subscriptions and Pinia state. They resync on reconnect, refresh, and visibility changes. Only the active clock interpolates between server samples. The host can review a prepared duel, run the game with buttons or shortcuts, and launch a separate audience display.
+
+Verified with 24 xUnit tests, five Vitest tests, type checking, a production publish, and four Playwright tests. The browser flow captured role-specific hub messages in separate contexts, interrupted and restored the audience connection, refreshed the host, and verified Correct, Pass, Undo, Pause, Resume, manual finish, and return to setup. The paused display was visually checked at 1920×1080.
+
 ## Remaining work and resume order
 
-1. Continue #21 with a Vue SignalR client and Pinia state. Bootstrap the host cookie, subscribe to the role-specific group, fetch authoritative state after refresh, reconnect and visibility changes, and interpolate tenths locally. Add a browser test that inspects real host and audience SignalR messages in separate browser contexts. The existing Playwright test verifies the HTTP projection.
-2. Build /sets and /categories under #13 and #14. Wire server reload diagnostics and conflict handling into the editors for #9. Verify all supported media formats and authorization in #11.
-3. Add the host dashboard, keyboard controls, and audience view under #22–#24. Backend Undo is available. Test keys, audio activation, countdown sync, disconnection, and the projected layout.
-4. Complete portable interchange and collisions (#15–#16), demo data (#26), visual polish (#25), full coverage and CI (#27–#30), documentation (#31), and the complete acceptance scenarios (#32).
-
-The visible Vue application currently serves the health-check shell. The full browser workflows, offline acceptance, and 1920×1080 visual verification are still open.
+1. Build /sets and /categories under #13 and #14 so hosts can populate and activate content from the UI. Wire YAML reload diagnostics and conflict handling into the editors for #9. Verify supported media formats, upload behavior, and playback under #11 and #24.
+2. Complete portable interchange and collision handling (#15–#16), sample data (#26), and the remaining host workflow acceptance (#22).
+3. Finish visual polish (#25), test coverage and CI (#27–#30), deployment and format documentation (#31), and final acceptance (#32).
