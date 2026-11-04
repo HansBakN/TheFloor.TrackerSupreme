@@ -6,6 +6,10 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <FrontendDirectory>$(MSBuildProjectDirectory)/../web</FrontendDirectory>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <PackageReference Include="YamlDotNet" Version="16.0.0" />
+  </ItemGroup>
   <Target Name="PublishFrontend" AfterTargets="ComputeFilesToPublish">
     <Exec WorkingDirectory="$(FrontendDirectory)" Command="npm ci" />
     <Exec WorkingDirectory="$(FrontendDirectory)" Command="npm run build" />

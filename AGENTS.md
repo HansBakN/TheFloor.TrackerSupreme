@@ -5,3 +5,5 @@
 Use GitHub Issues as the project tracker. Link work to issue numbers and specification sections, use focused feature branches and Conventional Commits, and integrate through reviewed pull requests after checks pass. Keep [docs/progress.md](docs/progress.md) current so a new session can resume the next unblocked issue.
 
 Use isolated temporary data directories for testing. Keep real event data, generated databases, credentials, and local configuration out of Git. Use Playwright for browser verification.
+
+Keep `TreatWarningsAsErrors` enabled for every C# project through the root `Directory.Build.props`.
