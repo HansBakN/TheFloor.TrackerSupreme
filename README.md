@@ -30,6 +30,8 @@ Open **Host**, enter the contestants, choose a category, and prepare the duel. O
 
 Manage text, image, and audio questions from the category editor. The [content format guide](docs/content-format.md) explains the external data directory and manual YAML editing.
 
+Use **Export set ZIP** to share an entire event, or **Export category ZIP** for a single category and its media. Import a package from the matching editor. The [content format guide](docs/content-format.md#backup-and-transfer) explains full backups and restores.
+
 ## Development
 
 Run each process in its own terminal from the repository root.
