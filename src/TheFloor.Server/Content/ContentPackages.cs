@@ -96,11 +96,12 @@ public sealed class ContentPackages(ContentLibrary library, DataPaths paths)
             {
                 var original = package.Definition;
                 var id = original.Id;
-                if (knownCategories.TryGetValue(id, out var existing) && Matches(existing, package))
+                var ambiguous = library.HasDuplicateCategoryId(id);
+                if (knownCategories.TryGetValue(id, out var existing) && !ambiguous && Matches(existing, package))
                 {
                     reused++;
                 }
-                else if (existing is not null || Directory.Exists(CategoryDestination(id)))
+                else if (ambiguous || existing is not null || Directory.Exists(CategoryDestination(id)))
                 {
                     if (!copyConflicts) throw new ContentConflict($"Category '{original.Name}' conflicts with the existing UUID {id}. Import independent copies to keep both.");
                     id = Guid.NewGuid();
@@ -122,9 +123,11 @@ public sealed class ContentPackages(ContentLibrary library, DataPaths paths)
             if (set is not null)
             {
                 newSet = set with { CategoryIds = set.CategoryIds.Select(id => remapped[id]).ToArray() };
-                if (knownSets.TryGetValue(set.Id, out var existing) && SameDefinition(newSet, existing.Definition))
+                var ambiguous = library.HasDuplicateSetId(set.Id);
+                if (knownSets.TryGetValue(set.Id, out var existing) && !ambiguous &&
+                    SameDefinition(newSet, existing.Definition) && library.HasCurrentSetRevision(set.Id, existing.Revision))
                     newSet = null;
-                else if (existing is not null || Directory.Exists(SetDestination(set.Id)))
+                else if (ambiguous || existing is not null || Directory.Exists(SetDestination(set.Id)))
                 {
                     if (!copyConflicts) throw new ContentConflict($"Set '{set.Name}' conflicts with the existing UUID {set.Id}. Import an independent copy to keep both.");
                     newSet = newSet with { Id = Guid.NewGuid() };
@@ -154,14 +157,14 @@ public sealed class ContentPackages(ContentLibrary library, DataPaths paths)
                     Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                     File.WriteAllBytes(target, media.Value);
                 }
-                File.WriteAllBytes(DataPaths.SafePath(folder, "category.yaml"), ContentYaml.Write(item.Definition));
+                AtomicFiles.Write(DataPaths.SafePath(folder, "category.yaml"), ContentYaml.WriteBounded(item.Definition));
                 plan.Add((folder, CategoryDestination(item.Definition.Id)));
             }
             if (set is not null)
             {
                 var folder = DataPaths.SafePath(staging, "set");
                 Directory.CreateDirectory(folder);
-                File.WriteAllBytes(DataPaths.SafePath(folder, "set.yaml"), ContentYaml.Write(set));
+                AtomicFiles.Write(DataPaths.SafePath(folder, "set.yaml"), ContentYaml.WriteBounded(set));
                 plan.Add((folder, SetDestination(set.Id)));
             }
             foreach (var item in plan)

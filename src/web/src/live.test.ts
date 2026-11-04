@@ -71,3 +71,32 @@ it('posts a versioned host command and refreshes after a rejected transition', a
   expect(wire.refresh).toHaveBeenCalledOnce()
   close()
 })
+
+it('ignores a rapid repeated answer even after the first request completes', async () => {
+  const live = useLive()
+  const close = live.connect('host')
+  const state: HostState = {
+    audienceCount: 0,
+    session: {
+      duel, categorySetId: 'set', answer: 'Answer', alternatives: [], notes: null, canUndo: false, exhausted: false,
+      configuration: { playerA: 'Martin', playerB: 'Thomas', categoryId: 'geo', seconds: 45, passSeconds: 3, starter: 'a', order: 'ordered' },
+    },
+  }
+  const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+  const fetch = vi.fn(async () => Response.json(state))
+  vi.stubGlobal('fetch', fetch)
+  try {
+    wire.receive?.({ role: 'host', state })
+    await live.command('correct')
+    expect(live.pending).toBe(false)
+    now.mockReturnValue(1100)
+    await live.command('correct')
+    expect(fetch).toHaveBeenCalledOnce()
+    now.mockReturnValue(1300)
+    await live.command('correct')
+    expect(fetch).toHaveBeenCalledTimes(2)
+  } finally {
+    now.mockRestore()
+    close()
+  }
+})

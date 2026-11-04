@@ -16,6 +16,7 @@ export const useLive = defineStore('live', () => {
   const error = ref('')
   let connection: ReturnType<typeof openLiveConnection> | undefined
   let revision = 0
+  let lastCommand: { action: DuelAction; at: number } | undefined
 
   function receive(update: LiveUpdate) {
     const duel = update.role === 'host' ? update.state.session?.duel : update.state
@@ -33,6 +34,7 @@ export const useLive = defineStore('live', () => {
   function connect(role: Role) {
     connection?.stop()
     revision++
+    lastCommand = undefined
     sample.value = undefined
     host.value = undefined
     audienceCount.value = 0
@@ -72,7 +74,11 @@ export const useLive = defineStore('live', () => {
   }
 
   function command(action: DuelAction, winner?: Player) {
-    if (!host.value) return
+    if (!host.value || pending.value || status.value !== 'live') return
+    const now = performance.now()
+    if ((action === 'correct' || action === 'pass') && lastCommand?.action === action &&
+        now - lastCommand.at < 250) return
+    lastCommand = { action, at: now }
     const duel = host.value.duel
     return send('/api/host/command', {
       sessionId: duel.id, version: duel.version, commandId: crypto.randomUUID(), action, winner,

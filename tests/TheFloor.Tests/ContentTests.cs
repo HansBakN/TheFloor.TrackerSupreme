@@ -143,6 +143,44 @@ public sealed class ContentTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(checkout, "event-data")));
     }
 
+    [Fact]
+    public void UnavailableLibraryRetainsLastGoodViewAndRefusesWritesUntilReload()
+    {
+        var original = library.SaveCategory(Category(), null);
+        var renamed = Path.Combine(paths.Root, "missing-categories");
+        Directory.Move(paths.Categories, renamed);
+
+        var unavailable = library.View(refresh: true);
+        Assert.Contains("Cannot refresh", Assert.Single(unavailable.Errors));
+        Assert.Equal(original.Revision, Assert.Single(unavailable.Categories).Revision);
+        Assert.Throws<DirectoryNotFoundException>(() => library.SaveCategory(original.Definition, original.Revision));
+
+        Directory.Move(renamed, paths.Categories);
+        Assert.Empty(library.View(refresh: true).Errors);
+        Assert.Equal("Recovered", library.SaveCategory(original.Definition with { Name = "Recovered" },
+            original.Revision).Definition.Name);
+    }
+
+    [Fact]
+    public void RejectsDataDirectoriesThatOverlapStaticFiles()
+    {
+        var publicRoot = Path.Combine(paths.Root, "public");
+        var privateRoot = Path.Combine(publicRoot, "event");
+        Assert.Throws<InvalidOperationException>(() => new DataPaths(privateRoot, publicRoot));
+        Assert.Throws<InvalidOperationException>(() => new DataPaths(publicRoot, privateRoot));
+        Assert.False(Directory.Exists(publicRoot));
+    }
+
+    [Fact]
+    public void ResolvesWebRootAliasesBeforeCheckingPrivacy()
+    {
+        if (OperatingSystem.IsWindows()) return; // Windows symbolic links may require elevated privileges.
+        var publicRoot = Directory.CreateDirectory(Path.Combine(paths.Root, "public")).FullName;
+        var alias = Path.Combine(paths.Root, "alias");
+        Directory.CreateSymbolicLink(alias, publicRoot);
+        Assert.Throws<InvalidOperationException>(() => new DataPaths(Path.Combine(alias, "event"), publicRoot));
+    }
+
     private static Category Category() => new()
     {
         SchemaVersion = 1, Id = Guid.NewGuid(), Name = "Geography",

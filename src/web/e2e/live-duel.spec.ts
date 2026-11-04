@@ -37,7 +37,7 @@ test('the host and independent display receive live role-specific updates', asyn
     const setId = crypto.randomUUID()
     const category = {
       schemaVersion: 1, id: categoryId, name: 'Live geography',
-      questions: ['First question?', 'Second question?', 'Third question?'].map(prompt => ({
+      questions: ['First question?', 'Second question?', 'Third question?', 'Fourth question?'].map(prompt => ({
         id: crypto.randomUUID(), type: 'text', prompt, enabled: true,
         answer: 'Private answer', alternatives: ['Private alternative'], notes: 'Private notes',
       })),
@@ -83,14 +83,21 @@ test('the host and independent display receive live role-specific updates', asyn
     await expect(display.getByText('Third question?')).toBeVisible()
     await expect.poll(async () => Number(await display.locator('[data-clock=b]').textContent())).toBeLessThanOrEqual(42)
 
+    const savedClock = await display.locator('[data-clock=a]').textContent()
+    await expect(page.getByRole('button', { name: /Correct/ })).toBeEnabled()
+    await page.keyboard.press('Space')
+    await expect(display.getByText('Fourth question?')).toBeVisible()
+    await expect(display.getByRole('region', { name: 'Contestant A' })).toContainText('Active player')
+    await expect.poll(async () => Number(await display.locator('[data-clock=a]').textContent())).toBeGreaterThan(Number(savedClock) - 2)
+
     await expect(page.getByRole('button', { name: /Undo/ })).toBeEnabled()
     await page.keyboard.press('u')
-    await expect(display.getByText('Second question?')).toBeVisible()
+    await expect(display.getByText('Third question?')).toBeVisible()
     await expect(display.getByText('Paused', { exact: true })).toBeVisible()
     await display.screenshot({ path: testInfo.outputPath('audience-1920x1080.png'), animations: 'disabled' })
     await socket?.close({ code: 1012 })
     await expect.poll(() => displayConnections).toBeGreaterThan(1)
-    await expect(display.getByText('Second question?')).toBeVisible()
+    await expect(display.getByText('Third question?')).toBeVisible()
     await page.reload()
     await expect(page.getByText('Private answer', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: /Resume/ })).toBeEnabled()
@@ -107,6 +114,22 @@ test('the host and independent display receive live role-specific updates', asyn
     expect(await display.evaluate(() => document.documentElement.scrollHeight)).toBe(1080)
     await page.getByRole('button', { name: 'Return to setup' }).click()
     await expect(display.getByRole('heading', { name: 'Waiting for the host' })).toBeVisible()
+
+    await page.getByLabel('Player A', { exact: true }).fill('Martin')
+    await page.getByLabel('Player B', { exact: true }).fill('Thomas')
+    await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption(categoryId)
+    await page.getByLabel('Starting player').selectOption('a')
+    await page.getByLabel('Starting time per player (seconds)').fill('1')
+    await page.getByRole('button', { name: 'Prepare duel' }).click()
+    await page.getByRole('button', { name: 'Start', exact: true }).click()
+    await expect(display.getByRole('heading', { name: 'Thomas wins!' })).toBeVisible()
+    await expect(display.locator('[data-clock=a]')).toHaveText('0.0')
+    await expect(display.locator('[data-clock=b]')).toHaveText('1.0')
+    await expect(page.getByRole('button', { name: /Correct/ })).toBeDisabled()
+    await expect(page.getByRole('button', { name: /Pass/ })).toBeDisabled()
+    await page.getByRole('button', { name: 'Return to setup' }).click()
+    await expect(page.getByRole('button', { name: 'Prepare duel' })).toBeEnabled()
+
   } finally {
     await context.close()
   }
