@@ -5,7 +5,8 @@ using TheFloor;
 using TheFloor.Content;
 using TheFloor.Duels;
 
-var builder = WebApplication.CreateBuilder(args);
+var loadDemo = args.Contains("--load-demo", StringComparer.Ordinal);
+var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--load-demo").ToArray());
 var paths = DataPaths.FromEnvironment();
 builder.Services.AddSingleton(paths);
 builder.Services.AddDbContextFactory<AppDb>(options => AppDb.Configure(options, paths));
@@ -28,6 +29,22 @@ using var dataLock = new FileStream(DataPaths.SafePath(paths.State, "server.lock
     FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 using (var database = app.Services.GetRequiredService<IDbContextFactory<AppDb>>().CreateDbContext())
     database.Database.EnsureCreated();
+
+if (loadDemo)
+{
+    try
+    {
+        var packages = app.Services.GetRequiredService<ContentPackages>();
+        var count = DemoContent.Load(Path.Combine(AppContext.BaseDirectory, "demo"), packages);
+        Console.WriteLine($"Demo sets available: {count}. Data directory: {paths.Root}");
+    }
+    catch (Exception error) when (error is ContentException or IOException or UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine($"Could not load demo content. {error.Message}");
+        Environment.ExitCode = 1;
+    }
+    return;
+}
 
 app.UseStaticFiles();
 app.Use(async (context, next) =>

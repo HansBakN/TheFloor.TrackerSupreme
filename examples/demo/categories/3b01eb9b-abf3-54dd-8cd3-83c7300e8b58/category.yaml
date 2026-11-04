@@ -1,0 +1,30 @@
+schemaVersion: 1
+id: 3b01eb9b-abf3-54dd-8cd3-83c7300e8b58
+name: "Mathematics"
+description: "Original sample questions for local testing."
+questions:
+  - id: 1d138fb4-16d3-51e1-884d-27374d9f008a
+    type: text
+    prompt: "What is seven times eight?"
+    answer: "56"
+    enabled: true
+  - id: 5f01eaf9-416a-594f-a06b-3e025f1a0c2e
+    type: text
+    prompt: "What is the square root of 81?"
+    answer: "9"
+    enabled: true
+  - id: 926353e8-5006-5d4c-b9c5-377b2163920e
+    type: text
+    prompt: "What is 25 percent of 80?"
+    answer: "20"
+    enabled: true
+  - id: 303418d5-be14-5ae0-8b60-84dc5c41e30d
+    type: text
+    prompt: "What is three cubed?"
+    answer: "27"
+    enabled: true
+  - id: df7d1eb6-4441-57a4-bdf2-64dfd02f8c4e
+    type: text
+    prompt: "What is the perimeter of a square with sides of four units?"
+    answer: "16 units"
+    enabled: true

@@ -32,6 +32,12 @@ Manage text, image, and audio questions from the category editor. The [content f
 
 Use **Export set ZIP** to share an entire event, or **Export category ZIP** for a single category and its media. Import a package from the matching editor. The [content format guide](docs/content-format.md#backup-and-transfer) explains full backups and restores.
 
+## Optional demo content
+
+From `artifacts/app`, run `dotnet TheFloor.Server.dll --load-demo` with the server stopped. This loads the bundled examples into the configured external data directory and exits. Start the app and select **Demo Set A** or **Demo Set B** under **Category sets**. The demo sets share General Knowledge and Demo Image Recognition. The loader keeps existing content and reports UUID conflicts.
+
+The [examples](examples/demo) contain original dummy questions and color swatches for development. Real event content belongs in the external data directory.
+
 ## Development
 
 Run each process in its own terminal from the repository root.

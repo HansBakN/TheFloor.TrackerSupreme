@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: 5e5506b3-06fa-56a7-b977-c6b173fc9c4d
+name: "Demo Image Recognition"
+description: "Original sample questions for local testing."
+questions:
+  - id: 28b8f5f9-c43f-562f-bc9d-aef81d20ed50
+    type: image
+    prompt: "Name the color."
+    answer: "Blue"
+    enabled: true
+    media: images/blue.png
+  - id: 9e8c11c3-a7b4-51d8-8462-ed9be2b7bde3
+    type: image
+    prompt: "Name the color."
+    answer: "Orange"
+    enabled: true
+    media: images/orange.png
+  - id: 5c8c63e0-de99-5ef1-a06c-e5f728e8d767
+    type: image
+    prompt: "Name the color."
+    answer: "Green"
+    enabled: true
+    media: images/green.png
+  - id: 4bb79eac-a23b-5363-b9e0-467287ec6b52
+    type: image
+    prompt: "Name the color."
+    answer: "Purple"
+    enabled: true
+    media: images/purple.png

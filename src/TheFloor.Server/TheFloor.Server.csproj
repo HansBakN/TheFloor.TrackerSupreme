@@ -10,6 +10,10 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageReference Include="YamlDotNet" Version="16.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../examples/demo/**/*" Link="demo/%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <Target Name="PublishFrontend" AfterTargets="ComputeFilesToPublish">
     <Exec WorkingDirectory="$(FrontendDirectory)" Command="npm ci" />
     <Exec WorkingDirectory="$(FrontendDirectory)" Command="npm run build" />
