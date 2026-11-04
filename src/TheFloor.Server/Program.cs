@@ -1,6 +1,9 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using TheFloor;
 using TheFloor.Content;
+using TheFloor.Duels;
 
 var builder = WebApplication.CreateBuilder(args);
 var paths = DataPaths.FromEnvironment();
@@ -9,6 +12,15 @@ builder.Services.AddDbContextFactory<AppDb>(options => AppDb.Configure(options, 
 builder.Services.AddSingleton<ContentLibrary>();
 builder.Services.AddSingleton<LocalHostAccess>();
 builder.Services.AddHostedService<ContentWatcher>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<DuelService>();
+builder.Services.AddSingleton<LiveDuel>();
+builder.Services.AddSingleton<AudienceConnections>();
+builder.Services.AddHostedService<DuelTicker>();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false)));
+builder.Services.AddSignalR().AddJsonProtocol(options =>
+    options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false)));
 
 var app = builder.Build();
 using var dataLock = new FileStream(DataPaths.SafePath(paths.State, "server.lock"),
@@ -20,6 +32,8 @@ app.UseStaticFiles();
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    if (context.Request.Path.StartsWithSegments("/api/display"))
+        context.Response.Headers.CacheControl = "no-store";
     if (context.Request.Path.StartsWithSegments("/api/library") ||
         context.Request.Path.StartsWithSegments("/api/host"))
     {
@@ -49,6 +63,7 @@ app.Use(async (context, next) =>
 app.MapGet("/api/health", () => TypedResults.Ok(new { status = "ready" }));
 app.MapPost("/api/local-host", (HttpContext context, LocalHostAccess access) => access.SignIn(context));
 app.MapContent();
+app.MapDuel();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 
