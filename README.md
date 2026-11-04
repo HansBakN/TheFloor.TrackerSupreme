@@ -1,10 +1,10 @@
 # TheFloor.TrackerSupreme
 
-TheFloor.TrackerSupreme is a locally hosted quiz-duel application for private events. The specification describes a host dashboard, a TV audience display, and a shared library of editable quiz categories.
+TheFloor.TrackerSupreme is a locally hosted quiz-duel application for private events. It includes a host dashboard, a TV audience display, and a shared library of editable quiz categories.
 
 Development uses the .NET 10 SDK and Node.js 24. See the [development environment](docs/environment.md), [project specification](docs/specification.md), and [implementation progress](docs/progress.md).
 
-## Build and run the current development version
+## Build and run
 
 ```sh
 dotnet publish src/TheFloor.Server -c Release -o artifacts/app
@@ -12,7 +12,7 @@ cd artifacts/app
 dotnet TheFloor.Server.dll --urls http://localhost:5080
 ```
 
-Open [the local application](http://localhost:5080). The published application serves its compiled frontend from the same ASP.NET Core process.
+Open [the local application](http://localhost:5080). The published application serves its compiled frontend from the same ASP.NET Core process. See the [deployment guide](docs/deployment.md) for offline installation and using a second display device.
 
 ## Prepare and run a duel
 

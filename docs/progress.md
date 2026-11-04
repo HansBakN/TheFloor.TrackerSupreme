@@ -39,6 +39,20 @@ Verified 41 xUnit tests, five Vitest tests, strict type checking, production pub
 
 The published app includes opt-in original sample content. Run `dotnet TheFloor.Server.dll --load-demo` before launching the server. Both demo sets share categories, and repeated loading reuses identical definitions. The xUnit suite validates the example YAML, relationships, and image media during CI.
 
-## Remaining work and resume order
+## Release acceptance
 
-1. Finish visual and workflow checks (#25, #27–#29), deployment documentation (#31), and final acceptance (#32). Add an actual server restart workflow and verify a full offline session from a published build.
+The published app was verified on macOS using 46 xUnit cases, 10 Vitest cases, and eight Chromium Playwright workflows. Strict Vue type checking, locked .NET restore, warning-free Release compilation, production publish, and the Git whitespace check passed. CI runs the application checks on Ubuntu and Windows.
+
+| Specification scenario | Verification |
+| --- | --- |
+| A · Category sets | The browser editor flow creates and shares a category across sets, edits the shared definition, duplicates it independently, and removes one reference. A separate browser test saves and reloads 20 image questions. |
+| B · External content | Browser and xUnit tests cover manual YAML changes, UI writes, stale draft protection, invalid YAML diagnostics, and successful reload after correction. |
+| C · Portability | The browser exports and imports into a clean second server, then resolves a collision by explicit independent copy. xUnit verifies media round trips, identical reuse, remapping, and archive rejection. |
+| D · Duel | Separate host and audience browser contexts exercise setup, Start, Correct and Pass while monitoring both clocks and the role-specific SignalR messages. |
+| E · Undo and completion | Host Undo, Pause, Resume, winner declaration, and return to setup pass in Chromium. The server expiry test verifies both clocks stop with the opponent declared winner. |
+| F · Persistence and isolation | An actual server restart restores a paused duel with the same question despite a library edit. The browser workflow blocks outbound requests and completes with only local traffic. Isolated test roots and the Git checkout guard are verified. |
+| G · Engineering quality | The production build, automated suites, example validation, and published run commands are covered by the release checks. |
+
+Visual inspection covered the paused 1920×1080 display, the 1280×720 host controls, and the category-set editor. A graceful shutdown saves the latest clock state. A forced stop recovers the last durable periodic checkpoint.
+
+The full startup and offline deployment instructions are in the [README](../README.md) and [deployment guide](deployment.md). See the [content format guide](content-format.md) for data locations, YAML and package examples, and backup and restore.
