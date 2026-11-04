@@ -9,14 +9,14 @@ public sealed class ContentLibrary(DataPaths paths, IDbContextFactory<AppDb> dat
     private Dictionary<Guid, Stored<Category>> categories = [];
     private Dictionary<Guid, Stored<CategorySet>> sets = [];
     private string[] errors = [];
-    private readonly HashSet<Guid> duplicateCategories = [];
-    private readonly HashSet<Guid> duplicateSets = [];
+    private HashSet<Guid> duplicateCategories = [];
+    private HashSet<Guid> duplicateSets = [];
 
     public LibraryView View(bool refresh = false)
     {
         lock (gate)
         {
-            if (refresh) Scan();
+            if (refresh) Scan(allowUnavailable: true);
             using var db = database.CreateDbContext();
             return new LibraryView(categories.Values.Select(c => c.Entry).OrderBy(c => c.Definition.Name).ToArray(),
                 sets.Values.Select(s => s.Entry).OrderBy(s => s.Definition.Name).ToArray(),
@@ -195,23 +195,54 @@ public sealed class ContentLibrary(DataPaths paths, IDbContextFactory<AppDb> dat
         }
     }
 
-    private void Scan()
+    internal bool HasDuplicateCategoryId(Guid id) => duplicateCategories.Contains(id);
+    internal bool HasDuplicateSetId(Guid id) => duplicateSets.Contains(id);
+
+    internal bool HasCurrentSetRevision(Guid id, string revision)
+    {
+        var path = Required(sets, id, "Set").Path;
+        try
+        {
+            AtomicFiles.EnsureRevision(path, revision);
+            return true;
+        }
+        catch (ContentConflict)
+        {
+            return false;
+        }
+    }
+
+    private void Scan(bool allowUnavailable = false)
     {
         var diagnostics = new List<string>();
-        categories = ScanDefinitions(paths.Categories, "category.yaml", categories, c => c.Id, ValidateCategory, duplicateCategories, diagnostics);
-        sets = ScanDefinitions(paths.Sets, "set.yaml", sets, s => s.Id,
-            (set, _) => ContentYaml.Validate(set), duplicateSets, diagnostics);
-        foreach (var set in sets.Values)
-        foreach (var reference in set.Entry.Definition.CategoryIds)
-            if (!categories.ContainsKey(reference))
-                diagnostics.Add($"Set '{set.Entry.Definition.Name}' references missing category {reference}.");
-        errors = diagnostics.ToArray();
+        var nextDuplicateCategories = new HashSet<Guid>();
+        var nextDuplicateSets = new HashSet<Guid>();
+        try
+        {
+            var nextCategories = ScanDefinitions(paths.Categories, "category.yaml", categories, c => c.Id,
+                ValidateCategory, nextDuplicateCategories, diagnostics);
+            var nextSets = ScanDefinitions(paths.Sets, "set.yaml", sets, s => s.Id,
+                (set, _) => ContentYaml.Validate(set), nextDuplicateSets, diagnostics);
+            foreach (var set in nextSets.Values)
+            foreach (var reference in set.Entry.Definition.CategoryIds)
+                if (!nextCategories.ContainsKey(reference))
+                    diagnostics.Add($"Set '{set.Entry.Definition.Name}' references missing category {reference}.");
+            categories = nextCategories;
+            sets = nextSets;
+            duplicateCategories = nextDuplicateCategories;
+            duplicateSets = nextDuplicateSets;
+            errors = diagnostics.ToArray();
+        }
+        catch (Exception error) when (error is ContentException or IOException or UnauthorizedAccessException)
+        {
+            errors = [$"Cannot refresh the content library. Check the data directories and reload. {error.Message}"];
+            if (!allowUnavailable) throw;
+        }
     }
 
     private static Dictionary<Guid, Stored<T>> ScanDefinitions<T>(string root, string name,
         Dictionary<Guid, Stored<T>> prior, Func<T, Guid> key, Action<T, string> validate, HashSet<Guid> duplicates, List<string> diagnostics)
     {
-        duplicates.Clear();
         var candidates = new List<Stored<T>>();
         var previousFiles = prior.Values.ToDictionary(s => s.Path);
         foreach (var directory in Directory.EnumerateDirectories(root).Order(StringComparer.Ordinal))
@@ -288,8 +319,7 @@ public sealed class ContentLibrary(DataPaths paths, IDbContextFactory<AppDb> dat
 
     private static string WriteDefinition<T>(string path, T definition, string? revision)
     {
-        var bytes = ContentYaml.Write(definition);
-        if (bytes.Length > ContentYaml.MaxDefinitionBytes) throw new ContentException("Definition exceeds 4 MiB.");
+        var bytes = ContentYaml.WriteBounded(definition);
         AtomicFiles.Write(path, bytes, revision);
         return AtomicFiles.Revision(bytes);
     }

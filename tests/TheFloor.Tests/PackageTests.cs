@@ -76,6 +76,65 @@ public sealed class PackageTests : IDisposable
     }
 
     [Fact]
+    public void AmbiguousIdsOnDiskCannotBeSilentlyReusedOrAdded()
+    {
+        var (source, export) = Create("source");
+        var (destination, import) = Create("destination");
+        var category = source.SaveCategory(NewCategory("Shared"), null).Definition;
+        var set = source.SaveSet(NewSet(category.Id), null).Definition;
+        foreach (var name in new[] { "first", "second" })
+        {
+            var categoryFolder = Directory.CreateDirectory(Path.Combine(root, "destination", "library", "categories", name));
+            var setFolder = Directory.CreateDirectory(Path.Combine(root, "destination", "sets", name));
+            File.WriteAllBytes(Path.Combine(categoryFolder.FullName, "category.yaml"), ContentYaml.Write(category));
+            File.WriteAllBytes(Path.Combine(setFolder.FullName, "set.yaml"), ContentYaml.Write(set));
+        }
+
+        var package = export.ExportSet(set.Id);
+        Assert.Throws<ContentConflict>(() => import.ImportZip(package, asSet: true, copyConflicts: false));
+        Assert.Equal(2, destination.View().Errors.Length);
+        var copy = import.ImportZip(package, asSet: true, copyConflicts: true);
+        Assert.NotEqual(set.Id, copy.SetId);
+        Assert.NotEqual(category.Id, Assert.Single(destination.View().Categories).Definition.Id);
+        Assert.Equal(1, copy.CopiedCategories);
+    }
+
+    [Fact]
+    public void CachedSetCannotBeReusedWhenTheDefinitionOnDiskIsInvalid()
+    {
+        var (library, packages) = Create("library");
+        var category = library.SaveCategory(NewCategory("Shared"), null).Definition;
+        var set = library.SaveSet(NewSet(category.Id), null).Definition;
+        var package = packages.ExportSet(set.Id);
+        var setFile = Path.Combine(root, "library", "sets", set.Id.ToString("D"), "set.yaml");
+        File.WriteAllText(setFile, "name: [broken");
+
+        Assert.Throws<ContentConflict>(() => packages.ImportZip(package, asSet: true, copyConflicts: false));
+        var copy = packages.ImportZip(package, asSet: true, copyConflicts: true);
+        Assert.NotEqual(set.Id, copy.SetId);
+        Assert.Equal(1, copy.ReusedCategories);
+        Assert.Equal("name: [broken", File.ReadAllText(setFile));
+    }
+
+    [Fact]
+    public void CompactJsonIsRejectedWhenItsStoredYamlWouldExceedTheLimit()
+    {
+        var (destination, import) = Create("destination");
+        var json = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schemaVersion = 1, id = Guid.NewGuid(), name = "Large category",
+            questions = Enumerable.Range(0, 1900).Select(_ => new
+            {
+                id = Guid.NewGuid(), type = "text", prompt = new string('q', 100), answer = new string('a', 2000),
+            }),
+        });
+        Assert.True(json.Length < ContentYaml.MaxDefinitionBytes);
+        Assert.Throws<ContentException>(() => import.ImportJson(json, copyConflicts: false));
+        Assert.Empty(Directory.EnumerateDirectories(Path.Combine(root, "destination", "library", "categories")));
+        Assert.Empty(destination.View(refresh: true).Categories);
+    }
+
+    [Fact]
     public void StandaloneZipAndTextJsonPreserveQuestionIdentity()
     {
         var (source, export) = Create("source");

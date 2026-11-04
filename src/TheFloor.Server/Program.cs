@@ -7,7 +7,8 @@ using TheFloor.Duels;
 
 var loadDemo = args.Contains("--load-demo", StringComparer.Ordinal);
 var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--load-demo").ToArray());
-var paths = DataPaths.FromEnvironment();
+var paths = DataPaths.FromEnvironment(builder.Environment.WebRootPath ??
+    Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
 builder.Services.AddSingleton(paths);
 builder.Services.AddDbContextFactory<AppDb>(options => AppDb.Configure(options, paths));
 builder.Services.AddSingleton<ContentLibrary>();

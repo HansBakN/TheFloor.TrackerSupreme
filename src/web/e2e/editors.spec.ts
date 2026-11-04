@@ -124,10 +124,20 @@ test('editors manage shared categories, question media, external edits, and acti
     await display.goto('/display')
     await expect(display.getByText('What is the capital of Denmark?')).toBeVisible()
     await page.getByRole('button', { name: 'Start', exact: true }).click()
+    const sets = await page.context().newPage()
+    try {
+      await sets.goto('/sets')
+      await selectSet(sets, 'Family Birthday')
+      await sets.getByRole('button', { name: 'Make active', exact: true }).click()
+      await expect(sets.getByRole('button', { name: 'Active set', exact: true })).toBeDisabled()
+    } finally {
+      await sets.close()
+    }
+    await expect(display.getByText('What is the capital of Denmark?')).toBeVisible()
     await page.getByRole('button', { name: /Correct/ }).click()
     await expect(display.getByText('Name this color.')).toBeVisible()
     await expect.poll(() => display.getByRole('img', { name: 'Quiz question image' }).evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(16)
-    await page.getByRole('button', { name: /Correct/ }).click()
+    await page.getByRole('button', { name: /Correct/ }).click({ delay: 250 })
     await expect(display.getByText('Identify this audio clip.')).toBeVisible()
     await display.getByRole('button', { name: 'Enable automatic question audio' }).click()
     await expect.poll(() => display.locator('audio').evaluate((element: HTMLAudioElement) => element.currentTime)).toBeGreaterThan(0)
@@ -139,6 +149,8 @@ test('editors manage shared categories, question media, external edits, and acti
     await page.getByRole('button', { name: 'Return to setup', exact: true }).click()
   }
 
+  await expect(page.getByText('Active set Family Birthday')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption(categoryId)
   await page.goto(categoryUrl)
   await page.getByRole('button', { name: 'Duplicate independently' }).click()
   await expect(page.getByLabel('Category name', { exact: true })).toHaveValue('Atlas revised (copy)')

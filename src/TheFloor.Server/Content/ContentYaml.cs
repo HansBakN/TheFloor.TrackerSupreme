@@ -47,6 +47,13 @@ public static class ContentYaml
 
     public static byte[] Write<T>(T definition) => Utf8.GetBytes(Serializer.Serialize(definition));
 
+    public static byte[] WriteBounded<T>(T definition)
+    {
+        var bytes = Write(definition);
+        if (bytes.Length > MaxDefinitionBytes) throw new ContentException("Definition exceeds 4 MiB.");
+        return bytes;
+    }
+
     public static void Validate(Category category)
     {
         ValidateIdentity(category.SchemaVersion, category.Id, category.Name, category.Description);

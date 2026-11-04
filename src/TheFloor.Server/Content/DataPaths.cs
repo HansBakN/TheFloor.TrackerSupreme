@@ -7,9 +7,15 @@ public sealed class DataPaths
     public string Sets => SafePath(Root, "sets");
     public string State => SafePath(Root, "state");
 
-    public DataPaths(string root)
+    public DataPaths(string root, string? webRoot = null)
     {
         Root = CanonicalDirectory(Path.GetFullPath(root));
+        if (webRoot is not null)
+        {
+            var publicRoot = CanonicalDirectory(Path.GetFullPath(webRoot));
+            if (Contains(publicRoot, Root) || Contains(Root, publicRoot))
+                throw new InvalidOperationException("The data directory must be separate from the public web root.");
+        }
         for (var parent = new DirectoryInfo(Root); parent is not null; parent = parent.Parent)
         {
             var marker = Path.Combine(parent.FullName, ".git");
@@ -32,11 +38,11 @@ public sealed class DataPaths
         }
     }
 
-    public static DataPaths FromEnvironment()
+    public static DataPaths FromEnvironment(string webRoot)
     {
         var configured = Environment.GetEnvironmentVariable("THEFLOOR_DATA_DIR");
         if (!string.IsNullOrWhiteSpace(configured))
-            return new DataPaths(configured);
+            return new DataPaths(configured, webRoot);
 
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (string.IsNullOrWhiteSpace(home))
@@ -47,7 +53,14 @@ public sealed class DataPaths
                 ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
                 : Environment.GetEnvironmentVariable("XDG_DATA_HOME") is { Length: > 0 } xdg &&
                     Path.IsPathFullyQualified(xdg) ? xdg : Path.Combine(home, ".local", "share");
-        return new DataPaths(Path.Combine(basePath, "TheFloor.TrackerSupreme"));
+        return new DataPaths(Path.Combine(basePath, "TheFloor.TrackerSupreme"), webRoot);
+    }
+
+    private static bool Contains(string directory, string path)
+    {
+        var relative = Path.GetRelativePath(directory, path);
+        return !Path.IsPathRooted(relative) && relative != ".." &&
+            !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
     }
 
     private static string CanonicalDirectory(string path)

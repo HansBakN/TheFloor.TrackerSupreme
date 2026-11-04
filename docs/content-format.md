@@ -1,6 +1,6 @@
 # Quiz content format
 
-The application reads UTF-8 YAML from the external data directory. Set `THEFLOOR_DATA_DIR` before starting the process to override the operating system default.
+The application reads UTF-8 YAML from the external data directory. Set `THEFLOOR_DATA_DIR` before starting the process to override the operating system default. Choose a private directory outside the Git checkout and separate from the server’s public web root.
 
 | System | Default |
 | --- | --- |
@@ -61,7 +61,7 @@ Each category UUID needs a corresponding category definition. A second set can i
 
 ## Editing safely
 
-Save files as UTF-8. The application watches the category and set directories and reports validation errors. A running process retains its last valid version of a definition if an external edit makes it unreadable. Reload after correcting the file. If the UI reports that a file changed while you were editing, reload its latest version before reapplying the edit.
+Save files as UTF-8. The application watches the category and set directories and reports validation errors. A running process retains its last valid version of a definition if an external edit makes it unreadable. If a library directory becomes unavailable, restore access and use **Reload files** before editing. If the UI reports that a file changed while you were editing, reload its latest version before reapplying the edit.
 
 ## Portable packages
 
