@@ -31,15 +31,17 @@ Frontend packages belong in the future frontend project's local dependencies. Th
 
 - [HansBakN/TheFloor.TrackerSupreme](https://github.com/HansBakN/TheFloor.TrackerSupreme) is public. An anonymous API request confirmed visibility and the default branch `main`.
 - The authenticated account has repository admin access. Public repository creation, HTTPS push to `main`, workflow-file publication, issue creation and labeling, label creation and editing, and a repository settings update were exercised.
-- Issues and squash merging are enabled. At setup, `main` had no active ruleset rules or classic branch protection.
+- Issues, squash merging, and automatic deletion of merged branches are enabled. At setup, `main` had no active ruleset rules or classic branch protection.
 - Labels include `feature`, `bug`, `enhancement`, `testing`, `documentation`, `infrastructure`, `priority:high`, and `blocked`.
-- [Verification issue #1](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/1) tracks the end-to-end exercise. The CLI pushed the feature branch and opened [PR #2](https://github.com/HansBakN/TheFloor.TrackerSupreme/pull/2), which was accessible through the unauthenticated GitHub API.
+- The CLI pushed a feature branch with Conventional Commits and opened [PR #2](https://github.com/HansBakN/TheFloor.TrackerSupreme/pull/2), which was accessible through the unauthenticated GitHub API. After its check passed, the CLI squash-merged it as `4b7d121` without a review or admin override. GitHub automatically closed [issue #1](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/1). The CLI deleted the remote verification branch, verified the merged files on `main`, and removed the local verification branch.
 
 For subsequent work, start from current `main`, create a feature branch, and use Conventional Commit messages. Push the branch and open a PR targeting `main`. Use `Closes #N` in the PR description when it resolves an issue. Inspect the diff and require a successful validation check before squashing the PR. Delete the feature branch and fast-forward local `main`.
 
 ## GitHub Actions
 
 [Repository validation](https://github.com/HansBakN/TheFloor.TrackerSupreme/actions/workflows/repository-validation.yml) runs on pushes and pull requests targeting `main`. It checks that the README, MIT license, and environment guide are present and nonempty, and that the README links to the guide. The workflow uses a pinned checkout action and a read-only repository token. The repository default token is read-only, and workflows cannot approve pull requests.
+
+GitHub CLI confirmed that the Required documentation job succeeded on the [initial push to main](https://github.com/HansBakN/TheFloor.TrackerSupreme/actions/runs/41881025193) and the [final revision of PR #2](https://github.com/HansBakN/TheFloor.TrackerSupreme/actions/runs/41881600388).
 
 ## Browser testing
 
