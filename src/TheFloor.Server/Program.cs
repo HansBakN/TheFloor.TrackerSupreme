@@ -13,6 +13,7 @@ builder.Services.AddSingleton(paths);
 builder.Services.AddDbContextFactory<AppDb>(options => AppDb.Configure(options, paths));
 builder.Services.AddSingleton<ContentLibrary>();
 builder.Services.AddSingleton<ContentPackages>();
+builder.Services.AddSingleton<Rehearsal>();
 builder.Services.AddSingleton<LocalHostAccess>();
 builder.Services.AddHostedService<ContentWatcher>();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -29,7 +30,7 @@ var app = builder.Build();
 using var dataLock = new FileStream(DataPaths.SafePath(paths.State, "server.lock"),
     FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 using (var database = app.Services.GetRequiredService<IDbContextFactory<AppDb>>().CreateDbContext())
-    database.Database.EnsureCreated();
+    database.Initialize();
 
 if (loadDemo)
 {
@@ -83,6 +84,7 @@ app.MapGet("/api/health", () => TypedResults.Ok(new { status = "ready" }));
 app.MapPost("/api/local-host", (HttpContext context, LocalHostAccess access) => access.SignIn(context));
 app.MapContent();
 app.MapDuel();
+app.MapRehearsal();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

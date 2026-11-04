@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using TheFloor.Content;
 
 namespace TheFloor.Duels;
@@ -24,6 +25,8 @@ public sealed record DuelSession(Guid Id, Guid MediaRootId, Guid CategorySetId, 
     public DateTimeOffset? Started { get; init; }
     public DateTimeOffset? Completed { get; init; }
     public Guid[] Commands { get; init; } = [];
+    [JsonIgnore]
     public bool Exhausted => Index >= Questions.Length;
+    [JsonIgnore]
     public Question? Current => Exhausted ? null : Questions[Index];
 }

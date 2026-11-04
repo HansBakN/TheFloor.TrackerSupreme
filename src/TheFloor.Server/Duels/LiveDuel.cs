@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.SignalR;
 using TheFloor.Content;
 
@@ -7,18 +7,10 @@ namespace TheFloor.Duels;
 public sealed record PublicQuestion(Guid Id, string Type, string? Prompt, string? MediaUrl);
 public sealed record AudienceDuel(Guid Id, long Version, DuelStatus Status, string CategoryName,
     string PlayerA, string PlayerB, double AMilliseconds, double BMilliseconds, Player Active,
-    Player? Winner, PublicQuestion? Question, long SampledAt);
+    Player? Winner, PublicQuestion? Question, long SampledAt, Guid? AudioDisplayId);
 public sealed record HostDuel(AudienceDuel Duel, Guid CategorySetId, DuelConfiguration Configuration,
     string? Answer, string[] Alternatives, string? Notes, bool CanUndo, bool Exhausted);
-public sealed record HostState(HostDuel? Session, int AudienceCount);
-
-public sealed class AudienceConnections
-{
-    private readonly ConcurrentDictionary<string, byte> audience = new();
-    public int Count => audience.Count;
-    public void Connect(string id) => audience.TryAdd(id, 0);
-    public void Disconnect(string id) => audience.TryRemove(id, out _);
-}
+public sealed record HostState(HostDuel? Session, int AudienceCount, AudienceStatus Audience);
 
 public sealed class DuelHub(LocalHostAccess access, AudienceConnections connections, LiveDuel live) : Hub
 {
@@ -37,7 +29,8 @@ public sealed class DuelHub(LocalHostAccess access, AudienceConnections connecti
         else
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, "audience");
-            connections.Connect(Context.ConnectionId);
+            var display = context?.Request.Query["displayId"].ToString();
+            connections.Connect(Context.ConnectionId, Guid.TryParse(display, out var id) ? id : Guid.NewGuid());
         }
         await live.Broadcast();
         await base.OnConnectedAsync();
@@ -56,9 +49,9 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
 {
     private readonly SemaphoreSlim gate = new(1);
 
-    public AudienceDuel? Audience() => Project(duels.Read());
+    public AudienceDuel? Audience() => Project(duels.Read(), connections.Read().AudioDisplayId);
 
-    public HostState Host() => HostProjection(duels.Read());
+    public HostState Host() => HostProjection(duels.Read(), connections.Read());
 
     public async Task Broadcast(CancellationToken cancellationToken = default)
     {
@@ -66,9 +59,10 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
         try
         {
             var session = duels.Read();
+            var audience = connections.Read();
             await Task.WhenAll(
-                hub.Clients.Group("audience").SendAsync("duel", Project(session), cancellationToken),
-                hub.Clients.Group("host").SendAsync("hostDuel", HostProjection(session), cancellationToken));
+                hub.Clients.Group("audience").SendAsync("duel", Project(session, audience.AudioDisplayId), cancellationToken),
+                hub.Clients.Group("host").SendAsync("hostDuel", HostProjection(session, audience), cancellationToken));
         }
         finally
         {
@@ -76,12 +70,12 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
         }
     }
 
-    private HostState HostProjection(DuelSession? session) => new(session is null ? null :
-        new HostDuel(Project(session)!, session.CategorySetId, session.Configuration,
+    private HostState HostProjection(DuelSession? session, AudienceStatus audience) => new(session is null ? null :
+        new HostDuel(Project(session, audience.AudioDisplayId)!, session.CategorySetId, session.Configuration,
             session.Current?.Answer, session.Current?.Alternatives ?? [], session.Current?.Notes,
-            session.Undo is not null, session.Exhausted), connections.Count);
+            session.Undo is not null, session.Exhausted), audience.Displays.Length, audience);
 
-    private AudienceDuel? Project(DuelSession? session)
+    private AudienceDuel? Project(DuelSession? session, Guid? audioDisplayId)
     {
         if (session is null) return null;
         var question = session.Current;
@@ -91,7 +85,7 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
             session.Active, session.Winner, question is null ? null :
                 new PublicQuestion(question.Id, question.Type, question.Prompt, question.Media is null ? null :
                     $"/api/display/{session.Id:D}/media/{question.Id:D}"),
-            time.GetUtcNow().ToUnixTimeMilliseconds());
+            time.GetUtcNow().ToUnixTimeMilliseconds(), audioDisplayId);
     }
 }
 
@@ -134,6 +128,8 @@ public sealed class DuelTicker(DuelService duels, LiveDuel live, TimeProvider ti
 
 public static class DuelEndpoints
 {
+    public sealed record AudioSelection(Guid? DisplayId);
+
     public static void MapDuel(this WebApplication app)
     {
         app.MapHub<DuelHub>("/live");
@@ -144,6 +140,13 @@ public static class DuelEndpoints
         {
             var file = service.CurrentMedia(id, question);
             return Results.File(file, Media.ContentType(file), enableRangeProcessing: true);
+        });
+        app.MapGet("/api/host/pairing", (IServer server) => AudiencePairing.Origins(server));
+        app.MapPut("/api/host/audio-display", async (AudioSelection selection, AudienceConnections connections, LiveDuel live) =>
+        {
+            connections.SelectAudio(selection.DisplayId);
+            await live.Broadcast();
+            return Results.NoContent();
         });
         app.MapGet("/api/host/state", (LiveDuel live) => live.Host());
         app.MapPost("/api/host/duel", async (DuelConfiguration configuration, DuelService service, LiveDuel live) =>

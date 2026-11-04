@@ -226,6 +226,37 @@ public sealed class DuelTests : IDisposable
         Assert.Equal(45_000, Milliseconds(restored.BTicks));
     }
 
+    [Fact]
+    public void LegacyDatabaseUpgradesToSmallCheckpointsWithoutLosingTheDeck()
+    {
+        var ready = Prepare();
+        using (var db = factory.CreateDbContext())
+        {
+            db.Duels.Single().Payload = System.Text.Json.JsonSerializer.Serialize(ready);
+            db.SaveChanges();
+            db.Database.ExecuteSqlRaw("DROP TABLE DuelSnapshots");
+            db.Initialize();
+        }
+
+        var service = new DuelService(factory, library, paths, clock);
+        var recovered = service.Read()!;
+        Assert.Equal(DuelStatus.Paused, recovered.Status);
+        Assert.Equal(ready.Questions.Select(question => question.Id), recovered.Questions.Select(question => question.Id));
+        string questions;
+        using (var db = factory.CreateDbContext())
+        {
+            questions = db.DuelSnapshots.Single().Questions;
+            Assert.DoesNotContain(ready.Current!.Prompt!, db.Duels.Single().Payload);
+        }
+
+        service.Command(new DuelCommand(recovered.Id, Guid.NewGuid(), recovered.Version, "resume", null));
+        clock.Advance(300);
+        service.Tick();
+        using var persisted = factory.CreateDbContext();
+        Assert.Equal(questions, persisted.DuelSnapshots.Single().Questions);
+        Assert.DoesNotContain(ready.Current!.Prompt!, persisted.Duels.Single().Payload);
+    }
+
     private DuelSession Prepare(int seconds = 45) => duels.Prepare(new DuelConfiguration("Martin", "Thomas",
         categoryId, seconds, 3, StartingPlayer.A, QuestionOrder.Ordered));
 

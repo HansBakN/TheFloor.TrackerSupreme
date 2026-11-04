@@ -135,8 +135,21 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
         {
             var recovered = JsonSerializer.Deserialize<DuelSession>(record.Payload)
                 ?? throw new InvalidOperationException("The current duel record could not be read.");
+            var legacy = recovered.Questions.Length != 0;
+            if (!legacy)
+            {
+                var snapshot = db.DuelSnapshots.Find(record.Id)
+                    ?? throw new InvalidOperationException("The current duel question snapshot is missing.");
+                recovered = recovered with
+                {
+                    Questions = JsonSerializer.Deserialize<Question[]>(snapshot.Questions)
+                        ?? throw new InvalidOperationException("The current duel question snapshot could not be read."),
+                };
+            }
             if (recovered.Status is DuelStatus.Ready or DuelStatus.Running)
                 Persist(recovered with { Status = DuelStatus.Paused, Version = recovered.Version + 1 }, time.GetTimestamp());
+            else if (legacy)
+                Persist(recovered, time.GetTimestamp());
             else
                 state = recovered;
         }
@@ -150,17 +163,30 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
         if (previous is not null && previous.Id != next?.Id)
         {
             previous.Current = false;
-            if (archived is not null) previous.Payload = JsonSerializer.Serialize(archived);
+            if (archived is not null) previous.Payload = Checkpoint(archived);
         }
         if (next is not null)
         {
-            var payload = JsonSerializer.Serialize(next);
+            if (state?.Id != next.Id || !ReferenceEquals(state.Questions, next.Questions))
+                SaveSnapshot(db, next);
+            var payload = Checkpoint(next);
             if (previous is not null && previous.Id == next.Id) previous.Payload = payload;
             else db.Duels.Add(new DuelRecord { Id = next.Id, Current = true, Payload = payload });
         }
         db.SaveChanges();
         state = next;
         anchor = stamp;
+    }
+
+    private static string Checkpoint(DuelSession session) =>
+        JsonSerializer.Serialize(session with { Questions = [] });
+
+    private static void SaveSnapshot(AppDb db, DuelSession session)
+    {
+        var existing = db.DuelSnapshots.Find(session.Id);
+        var questions = JsonSerializer.Serialize(session.Questions);
+        if (existing is null) db.DuelSnapshots.Add(new DuelSnapshot { Id = session.Id, Questions = questions });
+        else existing.Questions = questions;
     }
 
     private Question[] Append(DuelSession current) => library.Exclusive(() =>

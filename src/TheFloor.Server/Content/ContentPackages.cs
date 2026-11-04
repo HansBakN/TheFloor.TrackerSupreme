@@ -141,48 +141,39 @@ public sealed class ContentPackages(ContentLibrary library, DataPaths paths)
     private void Install(List<BundledCategory> categories, CategorySet? set)
     {
         if (categories.Count == 0 && set is null) return;
-        var staging = DataPaths.SafePath(paths.State, $"import-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(staging);
-        var plan = new List<(string Source, string Destination)>();
-        var installed = new Stack<(string Source, string Destination)>();
+        var staging = library.Journal.CreateStage();
+        var plan = new List<ContentStep>();
         try
         {
             foreach (var item in categories)
             {
-                var folder = DataPaths.SafePath(staging, $"category-{item.Definition.Id:D}");
-                Directory.CreateDirectory(folder);
+                var source = $"category-{item.Definition.Id:D}";
+                var folder = Directory.CreateDirectory(DataPaths.SafePath(staging, source)).FullName;
                 foreach (var media in item.MediaFiles)
                 {
                     var target = DataPaths.SafePath(folder, media.Key);
                     Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                    File.WriteAllBytes(target, media.Value);
+                    AtomicFiles.Write(target, media.Value);
                 }
-                AtomicFiles.Write(DataPaths.SafePath(folder, "category.yaml"), ContentYaml.WriteBounded(item.Definition));
-                plan.Add((folder, CategoryDestination(item.Definition.Id)));
+                var bytes = ContentYaml.WriteBounded(item.Definition);
+                AtomicFiles.Write(DataPaths.SafePath(folder, "category.yaml"), bytes);
+                plan.Add(new ContentStep(ContentStepKind.InstallCategory, $"library/categories/{item.Definition.Id:D}",
+                    source, null, AtomicFiles.Revision(bytes)));
             }
             if (set is not null)
             {
-                var folder = DataPaths.SafePath(staging, "set");
-                Directory.CreateDirectory(folder);
-                AtomicFiles.Write(DataPaths.SafePath(folder, "set.yaml"), ContentYaml.WriteBounded(set));
-                plan.Add((folder, SetDestination(set.Id)));
+                var folder = Directory.CreateDirectory(DataPaths.SafePath(staging, "set")).FullName;
+                var bytes = ContentYaml.WriteBounded(set);
+                AtomicFiles.Write(DataPaths.SafePath(folder, "set.yaml"), bytes);
+                plan.Add(new ContentStep(ContentStepKind.InstallSet, $"sets/{set.Id:D}", "set", null, AtomicFiles.Revision(bytes)));
             }
-            foreach (var item in plan)
-            {
-                Directory.Move(item.Source, item.Destination);
-                installed.Push(item);
-            }
+            library.Journal.WritePlan(staging, plan);
+            library.Journal.Apply(staging);
             library.View(refresh: true);
-        }
-        catch
-        {
-            while (installed.TryPop(out var item)) Directory.Move(item.Destination, item.Source);
-            library.View(refresh: true);
-            throw;
         }
         finally
         {
-            Directory.Delete(staging, recursive: true);
+            ContentJournal.DiscardUncommitted(staging);
         }
     }
 

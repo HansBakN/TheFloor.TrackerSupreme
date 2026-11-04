@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageReference Include="YamlDotNet" Version="16.0.0" />
+    <InternalsVisibleTo Include="TheFloor.Tests" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="../../examples/demo/**/*" Link="demo/%(RecursiveDir)%(Filename)%(Extension)"
