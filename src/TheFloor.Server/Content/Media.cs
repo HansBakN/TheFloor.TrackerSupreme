@@ -20,6 +20,13 @@ public static class Media
     {
         if (length <= 0 || length > MaxBytes) throw new ContentException("Media must be between 1 byte and 24 MiB.");
         var type = ContentType(fileName);
+        expectedType = expectedType?.ToLowerInvariant() switch
+        {
+            "audio/x-wav" or "audio/wave" => "audio/wav",
+            "audio/mp3" => "audio/mpeg",
+            "application/ogg" => "audio/ogg",
+            var mime => mime,
+        };
         if (expectedType is not null && type != expectedType && !type.StartsWith(expectedType + "/", StringComparison.Ordinal))
             throw new ContentException("Media format does not match the question or upload MIME type.");
         var valid = type switch

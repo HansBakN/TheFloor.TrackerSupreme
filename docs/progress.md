@@ -23,8 +23,13 @@ The host and display routes use separate role-specific SignalR subscriptions and
 
 Verified with 24 xUnit tests, five Vitest tests, type checking, a production publish, and four Playwright tests. The browser flow captured role-specific hub messages in separate contexts, interrupted and restored the audience connection, refreshed the host, and verified Correct, Pass, Undo, Pause, Resume, manual finish, and return to setup. The paused display was visually checked at 1920×1080.
 
+## Content editors
+
+The /sets and /categories pages provide shared membership, ordering, active-set selection, independent duplication, question editing, and media previews. The editors refresh from the watched YAML library and keep a dirty draft visible when the underlying revision changes. Conflicts require loading the latest version explicitly.
+
+Local checks passed 32 xUnit tests, five Vitest tests, strict type checking, production publish, and five Playwright tests. The editor browser workflow verified shared edits, external revision conflicts, active selection, PNG display, and WAV playback in an independent audience context.
+
 ## Remaining work and resume order
 
-1. Build /sets and /categories under #13 and #14 so hosts can populate and activate content from the UI. Wire YAML reload diagnostics and conflict handling into the editors for #9. Verify supported media formats, upload behavior, and playback under #11 and #24.
-2. Complete portable interchange and collision handling (#15–#16), sample data (#26), and the remaining host workflow acceptance (#22).
-3. Finish visual polish (#25), test coverage and CI (#27–#30), deployment and format documentation (#31), and final acceptance (#32).
+1. Complete portable ZIP and text-only JSON interchange with collision handling (#15–#16). Add import and export controls to the existing set and category editors to finish #13 and #14.
+2. Add opt-in sample content (#26). Finish visual polish (#25), testing and CI (#27–#30), documentation (#31), and final acceptance (#32).

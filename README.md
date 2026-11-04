@@ -14,6 +14,22 @@ dotnet TheFloor.Server.dll --urls http://localhost:5080
 
 Open [the local application](http://localhost:5080). The published application serves its compiled frontend from the same ASP.NET Core process.
 
+## Prepare and run a duel
+
+Open **Category sets** and create a set. In **Categories**, create a category, add questions, and select the sets that should share it. Edit a shared category once to update every set that references it. Choose **Make active** on the set you want to use.
+
+Open **Host**, enter the contestants, choose a category, and prepare the duel. Open **Audience display** in a separate window and move it to the TV or projector. Start the duel when the contestants are ready.
+
+| Key | Action |
+| --- | --- |
+| Space | Correct |
+| P | Pass |
+| Esc | Pause |
+| R | Resume |
+| U | Undo the last Correct or Pass and pause |
+
+Manage text, image, and audio questions from the category editor. The [content format guide](docs/content-format.md) explains the external data directory and manual YAML editing.
+
 ## Development
 
 Run each process in its own terminal from the repository root.
