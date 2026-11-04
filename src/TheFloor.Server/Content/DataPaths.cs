@@ -71,13 +71,21 @@ public sealed class DataPaths
         foreach (var part in relative.Split('/'))
         {
             if (part is "" or "." or ".." || part.Length > 128 || part.EndsWith('.') ||
-                !part.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.'))
+                !part.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.') || IsDeviceName(part))
                 throw new ContentException($"Unsafe relative path '{relative}'.");
             current = Path.Combine(current, part);
             if (new FileInfo(current).LinkTarget is not null)
                 throw new ContentException("Symbolic links are not supported in content directories.");
         }
         return current;
+    }
+
+    private static bool IsDeviceName(string segment)
+    {
+        var stem = segment.Split('.', 2)[0].ToUpperInvariant();
+        return stem is "CON" or "PRN" or "AUX" or "NUL" ||
+            stem.Length == 4 && char.IsAsciiDigit(stem[3]) && (stem.StartsWith("COM", StringComparison.Ordinal) ||
+                stem.StartsWith("LPT", StringComparison.Ordinal));
     }
 }
 

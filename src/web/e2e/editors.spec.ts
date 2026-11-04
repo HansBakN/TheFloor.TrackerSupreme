@@ -26,7 +26,7 @@ function wave() {
   return bytes
 }
 
-test('editors manage shared categories, question media, external edits, and active sets', async ({ page, browser }) => {
+test('editors manage shared categories, question media, external edits, and active sets', async ({ page, browser }, testInfo) => {
   await page.goto('/sets')
   for (const name of ['Christmas Party', 'Family Birthday']) {
     await page.getByLabel('New set name').fill(name)
@@ -94,6 +94,13 @@ test('editors manage shared categories, question media, external edits, and acti
   page.once('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Load latest version', exact: true }).click()
   await expect(page.getByLabel('Category name', { exact: true })).toHaveValue('Atlas revised')
+  const corrected = await readFile(file, 'utf8')
+  await writeFile(file, 'name: [broken')
+  await expect(page.getByRole('alert').filter({ hasText: 'Some library files need attention.' })).toBeVisible()
+  await expect(page.getByLabel('Category name', { exact: true })).toHaveValue('Atlas revised')
+  await writeFile(file, corrected)
+  await page.getByRole('button', { name: 'Reload files', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Some library files need attention.' })).toHaveCount(0)
 
   await page.getByRole('link', { name: 'Category sets', exact: true }).click()
   await selectSet(page, 'Christmas Party')
@@ -102,6 +109,7 @@ test('editors manage shared categories, question media, external edits, and acti
   await expect(page.getByRole('button', { name: 'Active set', exact: true })).toBeDisabled()
   await selectSet(page, 'Family Birthday')
   await expect(page.getByRole('link', { name: 'Atlas revised', exact: true })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('set-editor.png'), animations: 'disabled' })
 
   await page.getByRole('link', { name: 'Host', exact: true }).click()
   await expect(page.getByText('Active set Christmas Party')).toBeVisible()

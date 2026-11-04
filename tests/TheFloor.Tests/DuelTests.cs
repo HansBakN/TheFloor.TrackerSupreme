@@ -201,6 +201,31 @@ public sealed class DuelTests : IDisposable
         Assert.False(db.Duels.Single(row => row.Id == finished.Id).Current);
     }
 
+    [Fact]
+    public void DisabledQuestionsCannotPrepareAnEmptyDuel()
+    {
+        var category = Assert.Single(library.View().Categories);
+        library.SaveCategory(category.Definition with
+        {
+            Questions = category.Definition.Questions.Select(question => question with { Enabled = false }).ToArray(),
+        }, category.Revision);
+        Assert.Throws<ContentException>(() => Prepare());
+        Assert.Null(duels.Read());
+    }
+
+    [Fact]
+    public void GracefulStopPersistsTimeBetweenPeriodicCheckpoints()
+    {
+        Apply(Prepare(), "start");
+        clock.Advance(137);
+        duels.SaveCheckpoint();
+        clock.Advance(20_000);
+        var restored = new DuelService(factory, library, paths, clock).Read()!;
+        Assert.Equal(DuelStatus.Paused, restored.Status);
+        Assert.Equal(44_863, Milliseconds(restored.ATicks));
+        Assert.Equal(45_000, Milliseconds(restored.BTicks));
+    }
+
     private DuelSession Prepare(int seconds = 45) => duels.Prepare(new DuelConfiguration("Martin", "Thomas",
         categoryId, seconds, 3, StartingPlayer.A, QuestionOrder.Ordered));
 

@@ -175,7 +175,8 @@ async function remove() {
         <ul class="entry-list">
           <li v-for="{ definition } in categoryResults" :key="definition.id" :class="{ selected: definition.id === id }">
             <RouterLink :to="'/categories/' + definition.id">{{ definition.name }}</RouterLink>
-            <p class="muted">{{ definition.questions.length }} questions · {{ library.data.sets.filter(set => set.definition.categoryIds.includes(definition.id)).length }} sets</p>
+            <p class="muted">{{ definition.questions.length }} {{ definition.questions.length === 1 ? 'question' : 'questions' }} ·
+              Sets {{ library.data.sets.filter(set => set.definition.categoryIds.includes(definition.id)).length }}</p>
             <p v-if="definition.description" class="muted">{{ definition.description }}</p>
           </li>
         </ul>

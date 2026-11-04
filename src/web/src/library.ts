@@ -45,10 +45,20 @@ export const useLibrary = defineStore('library', () => {
 export function useLibraryUpdates() {
   const library = useLibrary()
   let timer: number | undefined
+  let mounted = false
+
+  async function poll() {
+    if (!document.hidden) await library.refresh()
+    if (mounted) timer = window.setTimeout(() => void poll(), 1000)
+  }
+
   onMounted(() => {
-    void library.refresh()
-    timer = window.setInterval(() => { if (!document.hidden) void library.refresh() }, 1_000)
+    mounted = true
+    void poll()
   })
-  onUnmounted(() => window.clearInterval(timer))
+  onUnmounted(() => {
+    mounted = false
+    window.clearTimeout(timer)
+  })
   return library
 }

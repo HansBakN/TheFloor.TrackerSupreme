@@ -15,6 +15,7 @@ function capture(page: Page, target: string) {
 }
 
 test('the host and independent display receive live role-specific updates', async ({ page, browser, request }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } })
   const display = await context.newPage()
   let socket: WebSocketRoute | undefined
@@ -68,6 +69,9 @@ test('the host and independent display receive live role-specific updates', asyn
     expect(publicFrames.join('')).not.toContain('Private')
     await expect(display.getByText('Private answer')).toHaveCount(0)
 
+    const controls = page.locator('.controls')
+    expect(await controls.evaluate(node => node.getBoundingClientRect().bottom <= window.innerHeight)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath('host-1280x720.png'), animations: 'disabled' })
     await page.getByRole('button', { name: 'Start', exact: true }).click()
     await expect.poll(async () => Number(await display.locator('[data-clock=a]').textContent())).toBeLessThan(45)
     await expect(display.locator('[data-clock=b]')).toHaveText('45.0')
