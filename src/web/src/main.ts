@@ -5,6 +5,8 @@ import App from './App.vue'
 import Home from './Home.vue'
 import Host from './Host.vue'
 import Display from './Display.vue'
+import CategoryEditor from './CategoryEditor.vue'
+import SetEditor from './SetEditor.vue'
 import './style.css'
 
 const router = createRouter({
@@ -13,6 +15,8 @@ const router = createRouter({
     { path: '/', component: Home },
     { path: '/host', component: Host },
     { path: '/display', component: Display },
+    { path: '/sets', component: SetEditor },
+    { path: '/categories/:id?', component: CategoryEditor },
   ],
 })
 

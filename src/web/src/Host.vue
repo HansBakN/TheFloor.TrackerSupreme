@@ -86,7 +86,7 @@ useShortcuts(can, command)
       <div class="form-grid">
         <label>Player A<input v-model.trim="setup.playerA" required maxlength="80" autocomplete="off"></label>
         <label>Player B<input v-model.trim="setup.playerB" required maxlength="80" autocomplete="off"></label>
-        <label>Category<select v-model="setup.categoryId" required>
+        <label>Category<select v-model="setup.categoryId" aria-label="Category" required>
           <option value="">Choose a category</option>
           <option v-for="category in available" :key="category.id" :value="category.id">{{ category.name }}</option>
         </select></label>

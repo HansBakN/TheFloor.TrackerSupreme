@@ -11,6 +11,7 @@ const props = withDefaults(defineProps<{
 const player = ref<HTMLAudioElement>()
 const enabled = ref(false)
 const blocked = ref(false)
+const mediaFailed = ref(false)
 
 async function play() {
   await nextTick()
@@ -30,6 +31,7 @@ function enableAudio() {
 
 watch(() => [props.question?.id, props.question?.mediaUrl], () => {
   blocked.value = false
+  mediaFailed.value = false
   void play()
 }, { flush: 'post' })
 
@@ -43,13 +45,14 @@ watch(() => props.playing, (playing) => {
   <div v-if="question" class="question-media">
     <p v-if="question.prompt" class="question-prompt">{{ question.prompt }}</p>
     <img v-if="question.type === 'image' && question.mediaUrl" :key="question.mediaUrl"
-         :src="question.mediaUrl" alt="Quiz question image">
+         :src="question.mediaUrl" alt="Quiz question image" @error="mediaFailed = true">
     <template v-if="question.type === 'audio' && question.mediaUrl">
       <audio :key="question.mediaUrl" ref="player" controls preload="metadata" :src="question.mediaUrl"
-             aria-label="Question audio" />
+             aria-label="Question audio" @error="mediaFailed = true" />
       <button v-if="audience && (!enabled || blocked)" type="button" @click="enableAudio">
         {{ blocked ? 'Play question audio' : 'Enable automatic question audio' }}
       </button>
     </template>
+    <p v-if="mediaFailed" class="notice" role="alert">The question media could not be played or displayed.</p>
   </div>
 </template>
