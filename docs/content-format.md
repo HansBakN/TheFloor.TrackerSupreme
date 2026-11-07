@@ -39,11 +39,17 @@ questions:
     media: audio/bicycle-bell.ogg
     answer: Bicycle bell
     enabled: true
+  - id: 7d3b1c52-0e0a-4a46-9d57-0a3c0e8b6f11
+    type: video
+    prompt: Name this gesture.
+    media: video/wave.mp4
+    answer: Wave
+    enabled: true
 ```
 
-Use lowercase question types. Every question needs an answer, text questions need a prompt, and image and audio questions need a media path. Optional fields can be omitted. Questions default to enabled. Quote scalars that YAML might read as other values, such as a numeric answer or text containing a colon followed by a space. YAML tags, anchors and aliases are unsupported.
+Use lowercase question types. Every question needs an answer, text questions need a prompt, and image, audio and video questions need a media path. Optional fields can be omitted. Questions default to enabled. Quote scalars that YAML might read as other values, such as a numeric answer or text containing a colon followed by a space. YAML tags, anchors and aliases are unsupported.
 
-Media paths use forward slashes and resolve inside the category directory. Use only ASCII letters, digits, periods, hyphens and underscores per path segment. Media must be at most 24 MiB per file. Supported extensions are JPG, JPEG, PNG, WebP, GIF, MP3, WAV and OGG. Uploading a replacement creates a separate file so another question can retain its existing media. Deleting a category removes its definition and set references. Its media files remain in its former directory for recovery.
+Media paths use forward slashes and resolve inside the category directory. Use only ASCII letters, digits, periods, hyphens and underscores per path segment. Media must be at most 24 MiB per file. Supported extensions are JPG, JPEG, PNG, WebP, GIF, MP3, WAV, OGG, MP4 and WebM. `video` questions must be MP4 or WebM clips of at most 5 seconds and 8 MiB; they play muted on a loop, so use an `audio` question for sound. Uploading a replacement creates a separate file so another question can retain its existing media. Deleting a category removes its definition and set references. Its media files remain in its former directory for recovery.
 
 ## Set
 

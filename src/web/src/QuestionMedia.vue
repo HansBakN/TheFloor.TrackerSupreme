@@ -52,6 +52,9 @@ watch(() => props.playing && props.audioAllowed, (canPlay) => {
     <p v-if="question.prompt" class="question-prompt">{{ question.prompt }}</p>
     <img v-if="question.type === 'image' && question.mediaUrl" :key="question.mediaUrl"
          :src="question.mediaUrl" alt="Quiz question image" @error="mediaFailed = true">
+    <video v-if="question.type === 'video' && question.mediaUrl" :key="question.mediaUrl"
+           :src="question.mediaUrl" autoplay loop muted playsinline disablepictureinpicture
+           aria-label="Quiz question video clip" @error="mediaFailed = true" />
     <template v-if="question.type === 'audio' && question.mediaUrl && audioAllowed">
       <audio :key="question.mediaUrl" ref="player" controls preload="metadata" :src="question.mediaUrl"
              aria-label="Question audio" @error="mediaFailed = true" />

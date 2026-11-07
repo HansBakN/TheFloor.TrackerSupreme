@@ -88,6 +88,7 @@ label { display: grid; gap: .35rem; font-weight: 600; }
 .question-media { display: grid; gap: .65rem; justify-items: center; align-content: center; text-align: center; min-width: 0; }
 .question-media img { display: block; max-width: 100%; max-height: 23vh; object-fit: contain; }
 .question-media audio { max-width: 100%; }
+.question-media video { display: block; max-width: 100%; max-height: 23vh; object-fit: contain; }
 .question-prompt { font-size: 1.15rem; font-weight: 650; overflow-wrap: anywhere; }
 .answer { font-size: 1.6rem; font-weight: 750; overflow-wrap: anywhere; }
 .arena {
@@ -108,7 +109,7 @@ label { display: grid; gap: .35rem; font-weight: 600; }
 .arena-question, .arena-idle, .winner { flex: 1; display: grid; justify-items: center; align-content: center; gap: 1rem; text-align: center; }
 .arena-question h2, .arena-idle h1 { font-size: clamp(1.5rem, 4vw, 4rem); font-weight: 750; }
 .arena .question-prompt { font-size: clamp(1.4rem, 4vw, 4.25rem); max-width: 33ch; line-height: 1.15; }
-.arena .question-media img { max-height: 38vh; }
+.arena .question-media img, .arena .question-media video { max-height: 38vh; }
 .pause-badge { border: 1px solid var(--focus); color: var(--focus); border-radius: 2rem; padding: .2rem 1rem; font-weight: 650; }
 .winner h2 { font-size: clamp(2.4rem, 7vw, 7rem); color: var(--accent); font-weight: 850; line-height: 1.03; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { .clock { transition: none; } }
@@ -185,7 +186,7 @@ label { display: grid; gap: .35rem; font-weight: 600; }
   .tournament-workspace[data-phase="playing"] .territory strong { font-size: .9rem; }
   .tournament-workspace[data-phase="playing"] .territory span:last-child { font-size: .75rem; }
   .embedded-duel .controls { gap: .4rem; font-size: .85rem; }
-  .embedded-duel .question-media img { max-height: 17vh; }
+  .embedded-duel .question-media img, .embedded-duel .question-media video { max-height: 17vh; }
 }
 @media (min-width: 1100px) {
   .tournament-workspace[data-phase="playing"] .territory .eyebrow { font-size: .6rem; letter-spacing: .05em; }

@@ -1,4 +1,4 @@
-export type QuestionType = 'text' | 'image' | 'audio'
+export type QuestionType = 'text' | 'image' | 'audio' | 'video'
 export interface Question {
   id: string
   type: QuestionType

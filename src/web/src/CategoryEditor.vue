@@ -9,6 +9,12 @@ import PackageImport from './PackageImport.vue'
 import { useLibraryUpdates } from './library'
 import QuestionMedia from './QuestionMedia.vue'
 
+const mediaAccept: Record<string, string> = {
+  image: 'image/jpeg,image/png,image/webp,image/gif',
+  audio: 'audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg',
+  video: 'video/mp4,video/webm,.mp4,.webm',
+}
+
 const route = useRoute()
 const router = useRouter()
 const library = useLibraryUpdates()
@@ -258,13 +264,14 @@ async function resetCategories() {
                 <button type="button" @click="removeQuestion">Remove question</button>
               </div>
               <label>Question type<select v-model="selected.type" @change="selected.media = null">
-                <option value="text">Text</option><option value="image">Image</option><option value="audio">Audio</option>
+                <option value="text">Text</option><option value="image">Image</option><option value="audio">Audio</option><option value="video">Video (1–5 s loop)</option>
               </select></label>
               <label>Prompt<textarea v-model="selected.prompt" rows="2" maxlength="5000" :required="selected.type === 'text'"></textarea></label>
               <label v-if="selected.type !== 'text'">Question media
-                <input type="file" :accept="selected.type === 'image' ? 'image/jpeg,image/png,image/webp,image/gif' : 'audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg'"
+                <input type="file" :accept="mediaAccept[selected.type] ?? ''"
                        :disabled="busy" @change="upload($event, selected)">
               </label>
+              <p v-if="selected.type === 'video'" class="muted">MP4 or WebM, at most 5 seconds and 8 MiB. It plays muted on a loop.</p>
               <p v-if="selected.type !== 'text'" class="muted">{{ selected.media ?? 'Upload a file for this question.' }}</p>
               <label>Correct answer<input v-model.trim="selected.answer" required maxlength="2000"></label>
               <label>Alternative answers (one per line)<textarea v-model="alternatives" rows="2"></textarea></label>

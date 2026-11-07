@@ -64,8 +64,8 @@ public static class ContentYaml
         {
             if (question is null || question.Id == Guid.Empty || !ids.Add(question.Id))
                 throw new ContentException("Each question needs a unique UUID.");
-            if (question.Type is not ("text" or "image" or "audio"))
-                throw new ContentException("Question type must be text, image, or audio.");
+            if (question.Type is not ("text" or "image" or "audio" or "video"))
+                throw new ContentException("Question type must be text, image, audio, or video.");
             if (string.IsNullOrWhiteSpace(question.Answer) || question.Answer.Length > 2_000)
                 throw new ContentException("Each question needs an answer of up to 2,000 characters.");
             if (question.Alternatives is null || question.Alternatives.Length > 50 ||
