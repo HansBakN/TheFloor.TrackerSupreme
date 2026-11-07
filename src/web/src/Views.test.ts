@@ -195,3 +195,19 @@ it('shows waiting and lockout states without mounting question media', async () 
   expect(display.find('img, audio').exists()).toBe(false)
   display.unmount()
 })
+
+it('returns from a completed tournament duel to standalone setup while retaining tournament history', async () => {
+  const live = useLiveDuel('host')
+  live.host = {
+    duel: { ...duel, status: 'finished', winner: 'a' }, categorySetId: setId, tournamentId: 'tournament',
+    configuration: { playerA: 'Martin', playerB: 'Thomas', categoryId, seconds: 45, passSeconds: 3, starter: 'a', order: 'ordered' },
+    answer: null, alternatives: [], notes: null, canUndo: false, exhausted: false,
+  }
+  const wrapper = await view('/host')
+  const back = wrapper.findAll('button').find(button => button.text() === 'Return to setup')!
+  expect(back.exists()).toBe(true)
+  expect(back.attributes('disabled')).toBeUndefined()
+  await back.trigger('click')
+  expect(live.command).toHaveBeenCalledWith('return', undefined)
+  wrapper.unmount()
+})
