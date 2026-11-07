@@ -83,20 +83,36 @@ public sealed class DuelTests : IDisposable
         var command = Command(running, "pass");
         var passed = duels.Command(command)!;
         Assert.Equal(Player.A, passed.Active);
-        Assert.Equal(41_200, Milliseconds(passed.ATicks));
+        Assert.Equal(44_200, Milliseconds(passed.ATicks));
         Assert.Equal("Question 2", passed.Current!.Prompt);
         Assert.Equal(passed.Version, duels.Command(command)!.Version);
-        Assert.Equal(41_200, Milliseconds(duels.Read()!.ATicks));
+        Assert.Equal(44_200, Milliseconds(duels.Read()!.ATicks));
+        clock.Advance(2_999);
+        var locked = duels.Read()!;
+        Assert.Equal(1, Milliseconds(locked.PassTicks));
+        Assert.False(locked.AudienceQuestionVisible);
+        Assert.Throws<ContentConflict>(() => Apply(locked, "correct"));
+        Assert.Throws<ContentConflict>(() => Apply(locked, "pass"));
+        clock.Advance(1);
+        var revealed = duels.Tick()!;
+        Assert.Equal(0, revealed.PassTicks);
+        Assert.True(revealed.AudienceQuestionVisible);
+        Assert.Equal(41_200, Milliseconds(revealed.ATicks));
+        Assert.Equal(45_000, Milliseconds(revealed.BTicks));
+        Assert.Equal(revealed.Version, duels.Command(command)!.Version);
+        Assert.Equal("Question 3", Apply(revealed, "correct").Current!.Prompt);
     }
 
     [Fact]
     public void APassCannotMakeTimeNegative()
     {
-        var finished = Apply(Apply(Prepare(2), "start"), "pass");
+        Apply(Apply(Prepare(2), "start"), "pass");
+        clock.Advance(2_000);
+        var finished = duels.Tick()!;
         Assert.Equal(DuelStatus.Finished, finished.Status);
         Assert.Equal(Player.B, finished.Winner);
         Assert.Equal(0, finished.ATicks);
-        Assert.Equal(DuelStatus.Paused, Apply(finished, "undo").Status);
+        Assert.Null(finished.Undo);
     }
 
     [Fact]
@@ -255,6 +271,137 @@ public sealed class DuelTests : IDisposable
         using var persisted = factory.CreateDbContext();
         Assert.Equal(questions, persisted.DuelSnapshots.Single().Questions);
         Assert.DoesNotContain(ready.Current!.Prompt!, persisted.Duels.Single().Payload);
+    }
+
+    [Fact]
+    public void AudienceSeesNoPreparedQuestionIncludingAfterRecoveryWhileHostCanPreviewMedia()
+    {
+        var category = Assert.Single(library.View().Categories);
+        var media = library.Upload(categoryId, "preview.gif", "image/gif", "GIF89atest"u8.ToArray());
+        var question = category.Definition.Questions[0] with { Type = "image", Media = media };
+        library.SaveCategory(category.Definition with { Questions = [question] }, category.Revision);
+        var ready = Prepare();
+        var live = new LiveDuel(duels, new AudienceConnections(), null!, clock);
+        Assert.Null(live.Audience()!.Question);
+        Assert.Equal(question.Id, live.Host().Session!.Duel.Question!.Id);
+        Assert.Throws<ContentException>(() => duels.CurrentMedia(ready.Id, question.Id));
+        Assert.True(File.Exists(duels.CurrentMedia(ready.Id, question.Id, host: true)));
+        clock.Advance(10_000);
+        var recoveredService = new DuelService(factory, library, paths, clock);
+        var recoveredLive = new LiveDuel(recoveredService, new AudienceConnections(), null!, clock);
+        var recovered = recoveredService.Read()!;
+        Assert.Equal(DuelStatus.Paused, recovered.Status);
+        Assert.Null(recoveredLive.Audience()!.Question);
+        Assert.Throws<ContentException>(() => recoveredService.CurrentMedia(ready.Id, question.Id));
+        recoveredService.Command(Command(recovered, "resume"));
+        Assert.Equal(question.Id, recoveredLive.Audience()!.Question!.Id);
+        Assert.True(File.Exists(recoveredService.CurrentMedia(ready.Id, question.Id)));
+    }
+
+    [Fact]
+    public void LockoutSurvivesPauseRecoveryAndResumeAndUndoRestoresThePassedQuestion()
+    {
+        var passed = Apply(Apply(Prepare(), "start"), "pass");
+        clock.Advance(750);
+        var paused = Apply(passed, "pause");
+        Assert.Equal(2_250, Milliseconds(paused.PassTicks));
+        clock.Advance(20_000);
+        var restored = new DuelService(factory, library, paths, clock);
+        var recovered = restored.Read()!;
+        Assert.Equal(2_250, Milliseconds(recovered.PassTicks));
+        Assert.Equal(44_250, Milliseconds(recovered.ATicks));
+        Assert.False(recovered.AudienceQuestionVisible);
+        var resumed = restored.Command(Command(recovered, "resume"))!;
+        clock.Advance(2_249);
+        Assert.False(restored.Read()!.AudienceQuestionVisible);
+        clock.Advance(1);
+        var revealed = restored.Tick()!;
+        Assert.True(revealed.AudienceQuestionVisible);
+        Assert.Equal(42_000, Milliseconds(revealed.ATicks));
+        var undone = restored.Command(Command(revealed, "undo"))!;
+        Assert.Equal(0, undone.Index);
+        Assert.Equal(0, undone.PassTicks);
+        Assert.Equal(DuelStatus.Paused, undone.Status);
+        Assert.Equal(45_000, Milliseconds(undone.ATicks));
+        Assert.True(undone.AudienceQuestionVisible);
+        Assert.Equal(resumed.Id, undone.Id);
+    }
+
+    [Fact]
+    public void RunningLockoutRecoversPausedWithoutOfflineTimeAndRestartClearsIt()
+    {
+        Apply(Apply(Prepare(), "start"), "pass");
+        clock.Advance(500);
+        duels.SaveCheckpoint();
+        clock.Advance(30_000);
+        var restored = new DuelService(factory, library, paths, clock);
+        var recovered = restored.Read()!;
+        Assert.Equal(DuelStatus.Paused, recovered.Status);
+        Assert.Equal(2_500, Milliseconds(recovered.PassTicks));
+        Assert.Equal(44_500, Milliseconds(recovered.ATicks));
+        Assert.False(recovered.AudienceQuestionVisible);
+        var ready = restored.Command(Command(recovered, "restart"))!;
+        Assert.Equal(DuelStatus.Ready, ready.Status);
+        Assert.Equal(0, ready.PassTicks);
+        Assert.False(ready.AudienceQuestionVisible);
+    }
+
+    [Fact]
+    public void ZeroPenaltyAdvancesImmediatelyAndLastPassPausesOnlyAfterLockout()
+    {
+        var ready = duels.Prepare(new DuelConfiguration("A", "B", categoryId, 45, 0, StartingPlayer.A, QuestionOrder.Ordered));
+        var passed = Apply(Apply(ready, "start"), "pass");
+        Assert.Equal(0, passed.PassTicks);
+        Assert.True(passed.AudienceQuestionVisible);
+        Assert.Equal(45_000, Milliseconds(passed.ATicks));
+        Apply(passed, "return");
+        var current = Apply(Prepare(), "start");
+        for (var i = 0; i < 3; i++) current = Apply(current, "correct");
+        current = Apply(current, "pass");
+        Assert.True(current.Exhausted);
+        Assert.Equal(DuelStatus.Running, current.Status);
+        clock.Advance(1_000);
+        var paused = Apply(current, "pause");
+        var resumed = Apply(paused, "resume");
+        clock.Advance(5_000);
+        var exhausted = duels.Tick()!;
+        Assert.Equal(DuelStatus.Paused, exhausted.Status);
+        Assert.Equal(0, exhausted.PassTicks);
+        Assert.Equal(42_000, Milliseconds(exhausted.BTicks));
+        Assert.Equal(resumed.Id, exhausted.Id);
+    }
+
+    [Theory]
+    [InlineData("ready")]
+    [InlineData("running")]
+    [InlineData("paused")]
+    [InlineData("pass")]
+    public void ReturnEndsAnUnfinishedDuelWithoutWinnerAndIsDurableAndIdempotent(string phase)
+    {
+        var current = Prepare();
+        if (phase != "ready") current = Apply(current, "start");
+        clock.Advance(500);
+        if (phase == "paused") current = Apply(current, "pause");
+        if (phase == "pass") current = Apply(current, "pass");
+        var command = Command(current, "return");
+        Assert.Throws<ContentConflict>(() => duels.Command(command with { Version = current.Version - 1 }));
+        Assert.NotNull(duels.Read());
+        Assert.Null(duels.Command(command));
+        Assert.Null(duels.Command(command));
+        clock.Advance(60_000);
+        Assert.Null(new DuelService(factory, library, paths, clock).Read());
+        using var db = factory.CreateDbContext();
+        var record = db.Duels.Single();
+        Assert.False(record.Current);
+        var archived = System.Text.Json.JsonSerializer.Deserialize<DuelSession>(record.Payload)!;
+        Assert.Equal(DuelStatus.Finished, archived.Status);
+        Assert.Null(archived.Winner);
+        Assert.NotNull(archived.Completed);
+        Assert.Equal(0, archived.PassTicks);
+        Assert.Equal(phase == "ready" ? 45_000 : 44_500, Milliseconds(archived.ATicks));
+        var next = Prepare();
+        duels.Command(command);
+        Assert.Equal(next.Id, duels.Read()!.Id);
     }
 
     private DuelSession Prepare(int seconds = 45) => duels.Prepare(new DuelConfiguration("Martin", "Thomas",

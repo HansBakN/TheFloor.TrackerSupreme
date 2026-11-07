@@ -21,7 +21,7 @@ vi.mock('./liveConnection', () => ({
 const duel: AudienceDuel = {
   id: 'duel', version: 4, status: 'running', active: 'a', playerA: 'Martin', playerB: 'Thomas',
   categoryName: 'Geography', aMilliseconds: 1200, bMilliseconds: 2300,
-  winner: null, sampledAt: 100, question: null,
+  winner: null, passMilliseconds: 0, sampledAt: 100, question: null,
 }
 
 beforeEach(() => {

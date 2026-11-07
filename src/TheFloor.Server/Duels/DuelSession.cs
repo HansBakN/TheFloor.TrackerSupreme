@@ -20,6 +20,9 @@ public sealed record DuelSession(Guid Id, Guid MediaRootId, Guid CategorySetId, 
     public long Version { get; init; } = 1;
     public DuelStatus Status { get; init; } = DuelStatus.Ready;
     public int Index { get; init; }
+    public long PassTicks { get; init; }
+    [JsonIgnore]
+    public bool AudienceQuestionVisible => Started is not null && PassTicks == 0 && Status != DuelStatus.Finished;
     public DuelUndo? Undo { get; init; }
     public Player? Winner { get; init; }
     public DateTimeOffset? Started { get; init; }

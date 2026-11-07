@@ -29,7 +29,7 @@ const winner = computed(() => duel.value?.winner === 'a' ? duel.value.playerA : 
         <p v-if="duel.status === 'paused'" class="pause-badge" role="status">Paused</p>
         <p v-else-if="duel.status === 'ready'" class="pause-badge" role="status">Ready to start</p>
         <QuestionMedia v-if="duel.question" :question="duel.question" audience :playing="duel.status === 'running'" :audio-allowed="duel.audioDisplayId === displayId" />
-        <h2 v-else>Waiting for the next question</h2>
+        <h2 v-else>{{ duel.passMilliseconds ? 'Pass lockout' : 'Waiting for the next question' }}</h2>
       </div>
     </template>
     <div v-else class="arena-idle">

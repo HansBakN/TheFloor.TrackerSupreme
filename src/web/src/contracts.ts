@@ -57,6 +57,7 @@ export interface AudienceDuel {
   active: Player
   winner: Player | null
   question: PublicQuestion | null
+  passMilliseconds: number
   sampledAt: number
   audioDisplayId?: string | null
 }

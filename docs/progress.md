@@ -83,3 +83,15 @@ The checkpoint profile serialized synthetic decks with a 250-character prompt, 8
 SQLite now stores the deck separately and upgrades an existing inline deck when it loads the current duel. The content journal resumes interrupted set imports and shared category deletions, and stops on a conflicting external edit so the edit can be preserved.
 
 Local verification passed 56 xUnit tests, 11 Vitest tests, and nine Playwright workflows. The new browser workflow verifies preset persistence and application, a locally rendered QR code, one designated audio display across separate contexts, missing-media diagnostics, and fullscreen and volume controls on the separate rehearsal view. It verifies that the live duel version and question remain unchanged by rehearsal. Recovery tests replay partially applied operations and preserve conflicting external edits. The SQLite upgrade test starts with an inline deck and verifies that later checkpoints leave the stored deck intact.
+
+## Duel flow corrections — issue #50
+
+The November 7, 2026 user request supersedes the original prepared-question and immediate-pass behaviour. [Approved requirement amendments](requirements-amendments.md) record the changes to §§11.1 and 11.4 and clarify §13 without modifying the original specification.
+
+- Prepared questions remain available to the host, while audience HTTP/SignalR projections and public snapshot media stay hidden until Start. Recovery of a prepared session keeps the audience hidden until Resume.
+- Pass starts a server-authoritative lockout for the configured duration. The active clock runs through that interval without an extra immediate deduction. Question content and answer controls unlock only after the interval. Pause, undo, exhaustion, zero penalty, expiry and restart recovery preserve consistent clock and lockout state.
+- **End duel and return to setup** is available in the main control row. Confirmation atomically archives the unfinished duel without a winner and clears the current session; retries cannot clear a subsequent duel.
+
+Local verification: 64 xUnit tests, 14 Vitest tests, 10 Playwright workflows, strict TypeScript checks, locked restore, warning-free Release build and production publish passed. Playwright uses isolated data and separate host/audience contexts, checks public payloads and media authorization, measures the full three-second lockout, and exercises confirmation dismissal and direct return to setup. Visual inspection covered the 1920×1080 lockout screen; the existing laptop control visibility check remains in the browser suite.
+
+Delivery is on branch `fix/50-duel-flow`; exact-head CI and pull-request integration remain the next checkpoint.

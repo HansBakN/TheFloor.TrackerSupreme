@@ -38,7 +38,7 @@ const initialLibrary: Library = {
 }
 const duel: AudienceDuel = {
   id: 'duel', version: 3, status: 'paused', active: 'a', playerA: 'Martin', playerB: 'Thomas',
-  categoryName: 'Geography', aMilliseconds: 12_320, bMilliseconds: 23_000, winner: null, sampledAt: 100,
+  categoryName: 'Geography', aMilliseconds: 12_320, bMilliseconds: 23_000, winner: null, passMilliseconds: 0, sampledAt: 100,
   question: { id: 'question', type: 'text', prompt: 'Capital of Denmark?', mediaUrl: null },
 }
 
@@ -130,5 +130,68 @@ it('shows host-only guidance and an error while the audience gets only public co
   expect(display.get('[data-clock="a"]').text()).toBe('12.4')
   expect(display.text()).not.toContain('Copenhagen')
   expect(display.text()).not.toContain('Host note')
+  display.unmount()
+})
+
+it('blocks answer buttons and shortcuts throughout a pass lockout and allows pause and undo', async () => {
+  const live = useLiveDuel('host')
+  vi.mocked(live.command).mockClear()
+  const locked = { ...duel, status: 'running' as const, passMilliseconds: 3000, question: null }
+  live.sample = { duel: locked, receivedAt: performance.now() }
+  live.host = {
+    duel: locked, categorySetId: setId,
+    configuration: { playerA: 'Martin', playerB: 'Thomas', categoryId, seconds: 45, passSeconds: 3, starter: 'a', order: 'ordered' },
+    answer: null, alternatives: [], notes: null, canUndo: true, exhausted: false,
+  }
+  const host = await view('/host')
+  const button = (name: string) => host.findAll('button').find(item => item.text().startsWith(name))!
+  expect(button('Correct').element).toHaveProperty('disabled', true)
+  expect(button('Pass').element).toHaveProperty('disabled', true)
+  expect(button('Pause').element).toHaveProperty('disabled', false)
+  expect(button('Undo').element).toHaveProperty('disabled', false)
+  expect(host.find('.host-question').exists()).toBe(false)
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }))
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+  expect(live.command).not.toHaveBeenCalled()
+  live.host.duel = { ...duel, status: 'running', passMilliseconds: 0 }
+  await flushPromises()
+  expect(button('Correct').element).toHaveProperty('disabled', false)
+  expect(button('Pass').element).toHaveProperty('disabled', false)
+  host.unmount()
+})
+
+it('requires confirmation before ending an ongoing duel and returning directly to setup', async () => {
+  const live = useLiveDuel('host')
+  vi.mocked(live.command).mockClear()
+  live.sample = { duel, receivedAt: performance.now() }
+  live.host = {
+    duel, categorySetId: setId,
+    configuration: { playerA: 'Martin', playerB: 'Thomas', categoryId, seconds: 45, passSeconds: 3, starter: 'a', order: 'ordered' },
+    answer: 'Copenhagen', alternatives: [], notes: null, canUndo: false, exhausted: false,
+  }
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+  const host = await view('/host')
+  const end = host.findAll('.controls button').find(button => button.text() === 'End duel and return to setup')!
+  await end.trigger('click')
+  expect(live.command).not.toHaveBeenCalled()
+  confirm.mockReturnValue(true)
+  await end.trigger('click')
+  expect(confirm).toHaveBeenCalledWith('End the duel without a winner and return to setup?')
+  expect(live.command).toHaveBeenCalledExactlyOnceWith('return', undefined)
+  host.unmount()
+})
+
+it('shows waiting and lockout states without mounting question media', async () => {
+  const live = useLiveDuel('audience')
+  live.sample = { duel: { ...duel, status: 'ready', question: null }, receivedAt: performance.now() }
+  const display = await view('/display')
+  expect(display.text()).toContain('Ready to start')
+  expect(display.find('.question-prompt').exists()).toBe(false)
+  expect(display.find('img, audio').exists()).toBe(false)
+  live.sample = { duel: { ...duel, status: 'running', passMilliseconds: 3000, question: null }, receivedAt: performance.now() }
+  await flushPromises()
+  expect(display.text()).toContain('Pass lockout')
+  expect(display.find('.question-prompt').exists()).toBe(false)
+  expect(display.find('img, audio').exists()).toBe(false)
   display.unmount()
 })

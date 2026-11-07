@@ -18,7 +18,7 @@ Open [the local application](http://localhost:5080). The published application s
 
 Open **Category sets** and create a set. In **Categories**, create a category, add questions, and select the sets that should share it. Edit a shared category once to update every set that references it. Choose **Make active** on the set you want to use.
 
-Open **Host**, enter the contestants, choose a category, and prepare the duel. Open **Audience display** in a separate window and move it to the TV or projector. Start the duel when the contestants are ready.
+Open **Host**, enter the contestants, choose a category, and prepare the duel. Open **Audience display** in a separate window and move it to the TV or projector. Start the duel when the contestants are ready. Only the host can preview the prepared question; the audience sees it when the clock starts. Pass hides the question for the configured penalty duration while the active clock keeps running. Use **End duel and return to setup** to abandon an unfinished duel without declaring a winner; confirm the action to return both screens to setup/waiting.
 
 | Key | Action |
 | --- | --- |

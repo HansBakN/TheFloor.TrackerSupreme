@@ -104,7 +104,7 @@ test('editors manage shared categories, question media, external edits, and acti
   try {
     const display = await audience.newPage()
     await display.goto('/display')
-    await expect(display.getByText('What is the capital of Denmark?')).toBeVisible()
+    await expect(display.getByText('What is the capital of Denmark?')).toHaveCount(0)
     await page.getByRole('button', { name: 'Start', exact: true }).click()
     const sets = await page.context().newPage()
     try {

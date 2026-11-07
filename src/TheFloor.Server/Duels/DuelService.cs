@@ -63,9 +63,12 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
                     if (archived is not null && JsonSerializer.Deserialize<DuelSession>(archived.Payload)
                         ?.Commands.Contains(command.CommandId) == true) return current;
                 }
-                if (current?.Id != command.SessionId || command.Version != current.Version || current.Status != DuelStatus.Finished)
-                    throw new ContentConflict("Finish the duel before returning to setup.");
-                Persist(null, stamp, current with { Commands = [.. current.Commands, command.CommandId] });
+                if (current?.Id != command.SessionId || command.Version != current.Version)
+                    throw new ContentConflict("The duel has changed. Check the current state and try again.");
+                var ended = current.Status == DuelStatus.Finished ?
+                    current with { Commands = [.. current.Commands, command.CommandId] } :
+                    DuelRules.Apply(current, command with { Action = "end", Winner = null }, time.GetUtcNow(), () => []);
+                Persist(null, stamp, ended);
                 return null;
             }
             if (current is null) throw new ContentConflict("Prepare a duel first.");
@@ -105,12 +108,12 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
         }
     }
 
-    public string CurrentMedia(Guid sessionId, Guid questionId)
+    public string CurrentMedia(Guid sessionId, Guid questionId, bool host = false)
     {
         lock (gate)
         {
             var current = Read();
-            if (current?.Id != sessionId || current.Current is not { Media: { } media } question || question.Id != questionId)
+            if (current?.Id != sessionId || (!host && !current.AudienceQuestionVisible) || current.Current is not { Media: { } media } question || question.Id != questionId)
                 throw new ContentException("That question media is no longer available.");
             return Media.VerifyFile(SnapshotFolder(current.MediaRootId), media, question.Type);
         }
@@ -121,7 +124,7 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
         if (state is not { Status: DuelStatus.Running }) return state;
         var elapsed = time.GetElapsedTime(anchor, stamp);
         var updated = DuelRules.Settle(state, elapsed, time.GetUtcNow());
-        if (updated.Status == DuelStatus.Finished || forceCheckpoint)
+        if (updated.Version != state.Version || forceCheckpoint)
             Persist(updated, stamp);
         return updated;
     }
