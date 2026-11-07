@@ -263,6 +263,10 @@ public sealed class TournamentTests : IDisposable
         state = Finish(state, Player.B);
         Assert.Equal(3, state.CurrentMatchup!.Duels.Length);
         Assert.Equal(state.CurrentMatchup.DefenderId, state.CurrentMatchup.WinnerId);
+        var reusable = offer.Where(id => id != offer[3]).ToArray();
+        var fifth = state.Categories.First(c => c.Status == CategoryStatus.Available && !offer.Contains(c.Id)).Id;
+        var drawnAgain = TournamentRules.Draw(state with { Categories = state.Categories.Where(c => reusable.Contains(c.Id) || c.Id == fifth).ToArray() }, new Random(1));
+        Assert.All(reusable, id => Assert.Contains(id, drawnAgain));
     }
 
     [Theory]
@@ -291,6 +295,7 @@ public sealed class TournamentTests : IDisposable
             }
             else state = Act(state, "challenge", opponents[0]);
             Assert.Contains(state.CurrentMatchup!.DefenderId, FloorAdjacency.Opponents(state, state.CurrentMatchup.ChallengerId));
+            var floorBefore = state.Floor;
             for (var d = 0; d < (deciding ? 3 : 2); d++)
             {
                 if (d == 2) state = Decider(state);
@@ -311,6 +316,10 @@ public sealed class TournamentTests : IDisposable
                 else state = Finish(state, deciding && d == 1 ? Player.B : Player.A);
                 AssertDurable(state);
             }
+            var result = state.CurrentMatchup!;
+            Assert.Equal(floorBefore.Where(t => t.OwnerId == result.LoserId).ToArray(), result.Transferred);
+            Assert.Equal(floorBefore.Count(t => t.OwnerId == result.LoserId || t.OwnerId == result.WinnerId), state.Floor.Count(t => t.OwnerId == result.WinnerId));
+            Assert.Null(state.Players.Single(p => p.Id == result.LoserId).CategoryId);
             Assert.Equal(m + 1, state.Players.Count(p => p.EliminationOrder is not null));
             Assert.Equal(6, state.Floor.Length);
             Assert.Equal(6, state.Floor.Select(t => (t.X, t.Y)).Distinct().Count());

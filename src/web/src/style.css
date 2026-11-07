@@ -187,3 +187,6 @@ label { display: grid; gap: .35rem; font-weight: 600; }
   .embedded-duel .controls { gap: .4rem; font-size: .85rem; }
   .embedded-duel .question-media img { max-height: 17vh; }
 }
+@media (min-width: 1100px) {
+  .tournament-workspace[data-phase="playing"] .territory .eyebrow { font-size: .6rem; letter-spacing: .05em; }
+}

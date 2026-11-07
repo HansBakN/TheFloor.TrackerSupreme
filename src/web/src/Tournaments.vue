@@ -156,7 +156,7 @@ async function destructive(action: 'undoResult' | 'restart' | 'delete') {
       </table></div></section>
       <details class="panel" :open="state.phase === 'completed'"><summary>Matchup history ({{ state.matchups.length }})</summary>
         <article v-for="(matchup, i) in state.matchups" :key="matchup.id" class="history-entry"><h3>Matchup {{ i + 1 }} · {{ name(matchup.challengerId) }} vs {{ name(matchup.defenderId) }}</h3>
-          <p>{{ matchup.completed ? name(matchup.winnerId) + ' won · ' + matchup.transferred.length + ' territories captured' : 'In progress' }} · {{ matchup.duels.filter(d => d.winnerId === matchup.challengerId).length }}–{{ matchup.duels.filter(d => d.winnerId === matchup.defenderId).length }}</p>
+          <p>{{ matchup.completed ? name(matchup.winnerId) + ' won · ' + matchup.transferred.length + (matchup.transferred.length === 1 ? ' territory captured' : ' territories captured') : 'In progress' }} · {{ matchup.duels.filter(d => d.winnerId === matchup.challengerId).length }}–{{ matchup.duels.filter(d => d.winnerId === matchup.defenderId).length }}</p>
           <ol><li v-for="(duel, j) in matchup.duels" :key="duel.id">Duel {{ j + 1 }}: {{ category(duel.categoryId) }} · {{ name(duel.startingPlayerId) }} first · {{ name(duel.winnerId) }} won</li></ol>
         </article>
       </details>

@@ -62,3 +62,19 @@ npm --prefix src/web run dev
 ```
 
 Use the Vite URL displayed in the second terminal. Run `dotnet test`, `npm --prefix src/web run typecheck`, and `npm --prefix src/web test` for local checks. After publishing, run `npx playwright install chromium` and `npm run test:e2e` from `src/web`.
+
+## Run a Mini Floor tournament
+
+Open **Mini Floor** (`/tournaments`). Choose an active category set containing **at least 19 distinct playable categories**; each needs an enabled question and valid media. Review the pool, enter six distinct names and choose clock/pass settings. The host is separate from those six participants.
+
+Creation freezes the category content/media for this tournament, randomly assigns six territories and randomizes the initial category selection order. Each player chooses one of five offered categories. The three-column, two-row floor wraps on both axes: opposite edges connect, diagonals do not. Every player initially has three distinct eligible opponents. Click a highlighted floor cell or an eligible opponent button to challenge.
+
+Each matchup uses the existing duel controls and audience display. The defender’s category is first, with the defender answering first. The challenger’s category is second, with the challenger first. At 1–1, the defender bans one of five categories, the challenger bans two, and the defender chooses from the remaining two; the challenger starts that deciding duel. The server records results automatically, eliminates the loser and transfers all their territories.
+
+After each nonfinal victory, select a fresh category, then **Continue challenging** or **Return to floor**. Return randomly chooses another active player. After five matchups, the champion owns all six territories. Standings and matchup history remain available for review. Categories are never replayed within a tournament; unchosen and banned categories remain available. A new tournament can reuse the library.
+
+Return to **Mini Floor** to resume an interrupted tournament. Refreshing preserves draws, assignments, scores, bans and decisions. A server restart restores an unfinished duel paused, with no offline time charged. Tournament state and frozen content live under the configured external data directory (`state/app.db` and `state/snapshots/`); back up that directory with the server stopped.
+
+Under **Tournament controls and recovery**, **Undo latest duel result** restores the state before that result and rolls back all later choices, including territory transfers, eliminations, replacement picks and an unrecorded downstream duel. It prepares the corrected duel again with the same category, questions and starting player and fresh clocks. Replay it or use **Duel options → Declare … winner** to record the correction. Undo, restart and deletion require confirmation. Pause a live tournament duel before navigating away; standalone duel setup is available again after the tournament completes or is deleted.
+
+The full [Mini Floor specification](docs/mini-floor-specification.md) and [verification checklist](docs/mini-floor-checklist.md) describe the rules and acceptance evidence.
