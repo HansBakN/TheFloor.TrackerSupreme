@@ -5,28 +5,29 @@ namespace TheFloor.Tournaments;
 
 public static class TournamentRules
 {
-    public const int MinimumCategories = 19;
+    public static int MinimumCategories(int players) => checked(3 * players + 1);
 
     public static TournamentState Create(Guid id, Guid setId, string setName, TournamentSetup setup,
         TournamentCategory[] categories, DateTimeOffset now, Random random)
     {
         var names = setup.Names?.Select(n => n?.Trim() ?? "").ToArray() ?? [];
-        if (names.Length != 6 || names.Any(n => n.Length is < 1 or > 80) ||
-            names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 6)
-            throw new ContentException("Enter exactly six distinct participant names, each 1–80 characters.");
+        if (names.Length is < 2 or > StartingFloor.MaxPlayers || names.Any(n => n.Length is < 1 or > 80) ||
+            names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Length)
+            throw new ContentException($"Enter 2–{StartingFloor.MaxPlayers} distinct participant names, each 1–80 characters.");
+        StartingFloor.ValidateDimensions(setup.Width, setup.Height, names.Length);
         DuelRules.Validate(new DuelConfiguration(names[0], names[1], Guid.NewGuid(), setup.Seconds, setup.PassSeconds,
             StartingPlayer.A, setup.Order));
-        if (categories.Length < MinimumCategories || categories.Select(c => c.Id).Distinct().Count() != categories.Length ||
+        if (categories.Length < MinimumCategories(names.Length) || categories.Select(c => c.Id).Distinct().Count() != categories.Length ||
             categories.Any(c => c.Id == Guid.Empty || c.Status != CategoryStatus.Available || c.OwnerId is not null))
-            throw new ContentException("Mini Floor requires at least 19 distinct eligible categories to guarantee every five-category draw.");
+            throw new ContentException($"Mini Floor with {names.Length} players requires at least {MinimumCategories(names.Length)} distinct eligible categories to guarantee every five-category draw.");
         var players = names.Select((name, i) => new TournamentPlayer(Guid.NewGuid(), name, i)).ToArray();
-        var owners = players.Select(p => p.Id).ToArray();
-        random.Shuffle(owners);
+        var allocation = StartingFloor.Allocate(setup.Width, setup.Height, players.Select(p => p.Id).ToArray(), random);
         var order = players.Select(p => p.Id).ToArray();
         random.Shuffle(order);
         var state = new TournamentState(id, setId, setName, players,
-            owners.Select((owner, i) => new Territory(i % 3, i / 3, owner)).ToArray(), order, categories)
+            allocation.Floor, order, categories)
         {
+            Width = setup.Width, Height = setup.Height, StartingTerritories = allocation.StartingTerritories, ExtraAssignments = allocation.ExtraAssignments,
             Created = now, Seconds = setup.Seconds, PassSeconds = setup.PassSeconds, Order = setup.Order,
             SelectingPlayerId = order[0], Commands = [setup.CommandId],
         };
@@ -62,12 +63,12 @@ public static class TournamentRules
                 };
                 if (state.Phase == TournamentPhase.WinnerCategory) return picked with { Phase = TournamentPhase.WinnerDecision };
                 var index = state.SelectionIndex + 1;
-                if (index < 6)
+                if (index < state.Players.Length)
                     return picked with { SelectionIndex = index, SelectingPlayerId = state.SelectionOrder[index], Offer = Draw(picked, random) };
                 return picked with
                 {
                     SelectionIndex = index, Phase = TournamentPhase.OpponentSelection,
-                    ChallengerId = state.Players[random.Next(6)].Id, ChallengerSource = "random",
+                    ChallengerId = state.Players[random.Next(state.Players.Length)].Id, ChallengerSource = "random",
                 };
             case "challenge" when state.Phase == TournamentPhase.OpponentSelection:
                 if (state.ChallengerId is not { } challenger || command.PlayerId is not { } defender ||
@@ -183,7 +184,7 @@ public static class TournamentRules
             Players = next.Players.Select(p => p.Id == loser ? p with { CategoryId = null, EliminationOrder = elimination } : p).ToArray(),
             Floor = next.Floor.Select(t => t.OwnerId == loser ? t with { OwnerId = winner } : t).ToArray(),
         };
-        if (elimination == 5)
+        if (elimination == state.Players.Length - 1)
             return next with { Phase = TournamentPhase.Completed, ChampionId = winner, Completed = now, Offer = [], SelectingPlayerId = null };
         return next with { Phase = TournamentPhase.MatchupResult, SelectingPlayerId = winner, Offer = Draw(next, random) };
     }
@@ -203,13 +204,16 @@ public static class TournamentRules
 
     public static void Validate(TournamentState state)
     {
-        if (state.Width != 3 || state.Height != 2 || state.Players.Length != 6 ||
-            state.Players.Any(p => p.Id == Guid.Empty) || state.Players.Select(p => p.Id).Distinct().Count() != 6 ||
-            state.Floor.Length != 6 || state.Floor.Select(t => (t.X, t.Y)).Distinct().Count() != 6 ||
+        StartingFloor.ValidateDimensions(state.Width, state.Height, state.Players.Length);
+        var count = state.Players.Length;
+        var cells = state.Width * state.Height;
+        if (
+            state.Players.Any(p => p.Id == Guid.Empty) || state.Players.Select(p => p.Id).Distinct().Count() != count ||
+            state.Floor.Length != cells || state.Floor.Select(t => (t.X, t.Y)).Distinct().Count() != cells ||
             state.Floor.Any(t => t.X < 0 || t.X >= state.Width || t.Y < 0 || t.Y >= state.Height ||
                 !state.Players.Any(p => p.Id == t.OwnerId && p.EliminationOrder is null)))
             throw new ContentException("Invalid tournament floor or participant state. Restore a valid backup.");
-        if (!Enum.IsDefined(state.Phase) || state.Categories.Length < MinimumCategories ||
+        if (!Enum.IsDefined(state.Phase) || state.Categories.Length < MinimumCategories(count) ||
             state.Categories.Any(c => c.Id == Guid.Empty || !Enum.IsDefined(c.Status)) ||
             state.Categories.Select(c => c.Id).Distinct().Count() != state.Categories.Length ||
             state.Players.Any(p => (p.EliminationOrder is null) != state.Floor.Any(t => t.OwnerId == p.Id)) ||
@@ -222,13 +226,13 @@ public static class TournamentRules
         var active = state.Players.Where(p => p.EliminationOrder is null).ToArray();
         var matchup = state.CurrentMatchup;
         var picking = state.Phase is TournamentPhase.InitialSelection or TournamentPhase.WinnerCategory or TournamentPhase.MatchupResult;
-        if (state.SelectionOrder.Length != 6 || state.SelectionOrder.Distinct().Count() != 6 ||
-            state.SelectionOrder.Any(id => !state.Players.Any(p => p.Id == id)) || state.SelectionIndex is < 0 or > 6 ||
-            (state.Phase == TournamentPhase.InitialSelection && (state.SelectionIndex >= 6 || state.SelectingPlayerId != state.SelectionOrder[state.SelectionIndex])) ||
+        if (state.SelectionOrder.Length != count || state.SelectionOrder.Distinct().Count() != count ||
+            state.SelectionOrder.Any(id => !state.Players.Any(p => p.Id == id)) || state.SelectionIndex < 0 || state.SelectionIndex > count ||
+            (state.Phase == TournamentPhase.InitialSelection && (state.SelectionIndex >= count || state.SelectingPlayerId != state.SelectionOrder[state.SelectionIndex])) ||
             (picking && (state.Offer.Length != 5 || state.Offer.Distinct().Count() != 5 ||
                 !active.Any(p => p.Id == state.SelectingPlayerId && p.CategoryId is null) ||
                 state.Offer.Any(id => !state.Categories.Any(c => c.Id == id && c.Status == CategoryStatus.Available)))) ||
-            (state.Phase != TournamentPhase.InitialSelection && state.SelectionIndex != 6) ||
+            (state.Phase != TournamentPhase.InitialSelection && state.SelectionIndex != count) ||
             (state.Phase == TournamentPhase.OpponentSelection && (!active.Any(p => p.Id == state.ChallengerId) || active.Any(p => p.CategoryId is null))) ||
             (state.Phase == TournamentPhase.Playing && (state.ActiveDuelId is null || matchup is null || matchup.Completed is not null)) ||
             (state.Phase != TournamentPhase.Playing && state.ActiveDuelId is not null) ||

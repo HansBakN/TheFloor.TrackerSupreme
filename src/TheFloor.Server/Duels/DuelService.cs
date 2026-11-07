@@ -180,6 +180,8 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
             if (previous is not null && previous.Id == next.Id) previous.Payload = payload;
             else db.Duels.Add(new DuelRecord { Id = next.Id, Current = true, Payload = payload });
         }
+        if (next is { TournamentId: null } && state?.Id != next.Id)
+            TournamentPersistence.Present(db, null);
         updateTournament?.Invoke(db, next);
         if (next is not null) TournamentPersistence.RecordFinished(db, next, time.GetUtcNow());
         db.SaveChanges();

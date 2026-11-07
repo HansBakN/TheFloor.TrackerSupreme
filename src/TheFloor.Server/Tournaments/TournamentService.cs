@@ -65,6 +65,7 @@ public sealed class TournamentService(IDbContextFactory<AppDb> database, Content
             .Select(c => duels.SnapshotCategory(id, c.Definition)).ToArray();
         var record = new TournamentRecord { Id = id, Payload = JsonSerializer.Serialize(state) };
         db.Tournaments.Add(record);
+        TournamentPersistence.Present(db, id);
         db.TournamentDecks.Add(new TournamentDeck { Id = id, Payload = JsonSerializer.Serialize(categories) });
         db.SaveChanges();
         return View(record);
@@ -82,6 +83,15 @@ public sealed class TournamentService(IDbContextFactory<AppDb> database, Content
         if (state.Commands.Contains(command.CommandId)) return View(record);
         if (state.Version != command.Version) throw new ContentConflict("The tournament changed. Review its current state and try again.");
         TournamentRules.Validate(state);
+        if (command.Action == "present")
+        {
+            if (duels.Read() is { Status: not DuelStatus.Finished } current && current.TournamentId != state.Id)
+                throw new ContentConflict("Finish the current duel before presenting another tournament.");
+            TournamentPersistence.Present(db, state.Id);
+            record.Payload = JsonSerializer.Serialize(state with { Version = state.Version + 1, Commands = [.. state.Commands, command.CommandId] });
+            db.SaveChanges();
+            return View(record);
+        }
         if (command.Action is "undoResult" or "restart" or "delete")
         {
             if (!command.Confirm) throw new ContentConflict("Confirm this destructive tournament action first.");
@@ -95,16 +105,19 @@ public sealed class TournamentService(IDbContextFactory<AppDb> database, Content
                 if (command.Action == "delete")
                 {
                     transaction.Tournaments.Remove(target);
+                    if (transaction.TournamentPresentations.Find(1)?.TournamentId == state.Id)
+                        TournamentPersistence.Present(transaction, null);
                     var deck = transaction.TournamentDecks.Find(state.Id);
                     if (deck is not null) transaction.TournamentDecks.Remove(deck);
                 }
                 else
                 {
                     var next = TournamentRules.Create(state.Id, state.SetId, state.SetName,
-                        new TournamentSetup(command.CommandId, state.Players.Select(p => p.Name).ToArray(), state.Seconds, state.PassSeconds, state.Order),
+                        new TournamentSetup(command.CommandId, state.Players.Select(p => p.Name).ToArray(), state.Seconds, state.PassSeconds, state.Order, state.Width, state.Height),
                         state.Categories.Select(c => c with { Status = CategoryStatus.Available, OwnerId = null }).ToArray(), time.GetUtcNow(), Random.Shared)
                         with { Version = state.Version + 1, Commands = [.. state.Commands, command.CommandId] };
                     target.Payload = JsonSerializer.Serialize(next);
+                    TournamentPersistence.Present(transaction, state.Id);
                     target.Undo = null;
                 }
             });
@@ -120,6 +133,7 @@ public sealed class TournamentService(IDbContextFactory<AppDb> database, Content
                 var next = TournamentRules.Launch(state, duel!) with { Version = state.Version + 1, Commands = [.. state.Commands, command.CommandId] };
                 TournamentRules.Validate(next);
                 Find(transaction, state.Id).Payload = JsonSerializer.Serialize(next);
+                TournamentPersistence.Present(transaction, state.Id);
             });
             return Read(state.Id);
         }
@@ -127,8 +141,26 @@ public sealed class TournamentService(IDbContextFactory<AppDb> database, Content
         { Version = state.Version + 1, Commands = [.. state.Commands, command.CommandId] };
         TournamentRules.Validate(updated);
         record.Payload = JsonSerializer.Serialize(updated);
+        TournamentPersistence.Present(db, state.Id);
         db.SaveChanges();
         return View(record);
+    });
+
+    public AudienceTournament? Audience() => duels.Exclusive(() =>
+    {
+        var duel = duels.Read();
+        using var db = database.CreateDbContext();
+        var presentation = db.TournamentPresentations.Find(1);
+        TournamentRecord? record;
+        if (presentation is not null)
+            record = presentation.TournamentId is { } id ? db.Tournaments.Find(id) : null;
+        else if (duel is { TournamentId: null })
+            record = null;
+        else
+            record = db.Tournaments.AsNoTracking().AsEnumerable()
+                .Where(r => duel?.TournamentId == r.Id || TournamentPersistence.Read(r).Phase != TournamentPhase.Completed)
+                .OrderByDescending(r => TournamentPersistence.Read(r).Created).FirstOrDefault();
+        return record is null ? null : TournamentAudience.Project(TournamentPersistence.Read(record));
     });
 
     private TournamentView Undo(TournamentRecord record, TournamentState state, TournamentCommand command)
@@ -155,6 +187,7 @@ public sealed class TournamentService(IDbContextFactory<AppDb> database, Content
         {
             var target = Find(transaction, state.Id);
             target.Payload = JsonSerializer.Serialize(restored);
+            TournamentPersistence.Present(transaction, state.Id);
             target.Undo = null;
         });
         return Read(state.Id);

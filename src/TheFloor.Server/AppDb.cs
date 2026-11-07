@@ -11,12 +11,17 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<DuelSnapshot> DuelSnapshots => Set<DuelSnapshot>();
     public DbSet<TournamentRecord> Tournaments => Set<TournamentRecord>();
     public DbSet<TournamentDeck> TournamentDecks => Set<TournamentDeck>();
+    public DbSet<TournamentPresentation> TournamentPresentations => Set<TournamentPresentation>();
 
     public void Initialize()
     {
         Database.EnsureCreated();
         // Existing installations were created with EnsureCreated and have no migrations table.
         Database.ExecuteSqlRaw("""
+            CREATE TABLE IF NOT EXISTS "TournamentPresentations" (
+                "Id" INTEGER NOT NULL PRIMARY KEY,
+                "TournamentId" TEXT NULL
+            );
             CREATE TABLE IF NOT EXISTS "Tournaments" (
                 "Id" TEXT NOT NULL PRIMARY KEY,
                 "Payload" TEXT NOT NULL,
@@ -69,4 +74,10 @@ public sealed class TournamentDeck
 {
     public Guid Id { get; init; }
     public required string Payload { get; set; }
+}
+
+public sealed class TournamentPresentation
+{
+    public int Id { get; init; } = 1;
+    public Guid? TournamentId { get; set; }
 }

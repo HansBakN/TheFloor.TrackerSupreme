@@ -13,6 +13,13 @@ public static class TournamentPersistence
         JsonSerializer.Deserialize<TournamentState>(record.Payload)
             ?? throw new ContentException("The tournament could not be restored. Restore a backup of state/app.db.");
 
+    public static void Present(AppDb db, Guid? tournamentId)
+    {
+        var selection = db.TournamentPresentations.Find(1);
+        if (selection is null) db.TournamentPresentations.Add(new TournamentPresentation { TournamentId = tournamentId });
+        else selection.TournamentId = tournamentId;
+    }
+
     public static void RecordFinished(AppDb db, DuelSession duel, DateTimeOffset now)
     {
         if (duel.TournamentId is not { } id) return;

@@ -31,6 +31,8 @@ public sealed record TournamentState(Guid Id, Guid SetId, string SetName, Tourna
 {
     public int Width { get; init; } = 3;
     public int Height { get; init; } = 2;
+    public Territory[] StartingTerritories { get; init; } = [];
+    public ExtraTerritory[] ExtraAssignments { get; init; } = [];
     public long Version { get; init; } = 1;
     public TournamentPhase Phase { get; init; } = TournamentPhase.InitialSelection;
     public int SelectionIndex { get; init; }
@@ -52,7 +54,7 @@ public sealed record TournamentState(Guid Id, Guid SetId, string SetName, Tourna
     [JsonIgnore] public Matchup? CurrentMatchup => Matchups.LastOrDefault();
 }
 public sealed record TournamentSetup(Guid CommandId, string[] Names, int Seconds = 45, int PassSeconds = 3,
-    QuestionOrder Order = QuestionOrder.Shuffled);
+    QuestionOrder Order = QuestionOrder.Shuffled, int Width = 3, int Height = 2);
 public sealed record TournamentCommand(Guid TournamentId, Guid CommandId, long Version, string Action,
     Guid? PlayerId = null, Guid[]? CategoryIds = null, bool Confirm = false);
 public sealed record PlayerStanding(Guid Id, string Name, int Color, bool Active, Guid? CategoryId, int Territories,
