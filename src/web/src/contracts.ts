@@ -62,6 +62,7 @@ export interface AudienceDuel {
   audioDisplayId?: string | null
 }
 export interface HostDuel {
+  tournamentId?: string | null
   duel: AudienceDuel
   categorySetId: string
   configuration: Configuration

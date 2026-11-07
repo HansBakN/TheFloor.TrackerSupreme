@@ -8,6 +8,7 @@ const route = useRoute()
   <nav v-if="!route.path.startsWith('/display')" class="site-nav" aria-label="Main navigation">
     <RouterLink class="brand" to="/">TheFloor.TrackerSupreme</RouterLink>
     <RouterLink to="/host">Host</RouterLink>
+    <RouterLink to="/tournaments">Mini Floor</RouterLink>
     <RouterLink to="/sets">Category sets</RouterLink>
     <RouterLink to="/categories">Categories</RouterLink>
   </nav>

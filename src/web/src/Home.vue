@@ -21,6 +21,7 @@ onMounted(async () => {
     <p class="mt-6 text-slate-300" role="status">{{ status }}</p>
     <nav class="actions mt-6" aria-label="Duel">
       <RouterLink class="button primary" to="/host">Host dashboard</RouterLink>
+      <RouterLink class="button" to="/tournaments">Mini Floor tournament</RouterLink>
       <RouterLink class="button" to="/display">Audience display</RouterLink>
     </nav>
   </main>

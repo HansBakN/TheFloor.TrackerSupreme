@@ -144,3 +144,33 @@ label { display: grid; gap: .35rem; font-weight: 600; }
 .pairing-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; align-items: start; }
 .pairing-grid img { border-radius: .4rem; background: white; }
 @media (max-width: 640px) { .pairing-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.tournament-workspace { display: grid; gap: 1rem; }
+.tournament-workspace > .page-header { margin-bottom: 0; }
+.tournament-context { display: grid; gap: .5rem; border-color: #4b6488; }
+.floor-grid { display: grid; gap: .65rem; }
+.territory { display: grid; justify-content: start; text-align: left; gap: .35rem; min-height: 6rem; border: 2px solid var(--player-color); border-top-width: .45rem; padding: .65rem; overflow-wrap: anywhere; }
+.territory strong { color: var(--player-color); font-size: 1.2rem; }
+.territory span:last-child { font-size: .85rem; font-weight: 450; }
+.territory:disabled { opacity: 1; }
+.territory.eligible { background: #173344; box-shadow: 0 0 0 1px var(--accent); }
+.territory.challenger { background: #2c2c42; border-style: double; }
+.territory:not(.eligible):not(.challenger) { background: #11162a; }
+.wrap-legend { margin-top: .75rem; font-size: .85rem; }
+.category-offer { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .65rem; margin-top: .75rem; }
+.category-offer button { min-height: 4rem; }
+.category-offer .banned { text-decoration: line-through; opacity: .5; }
+.category-offer .ban-selected { border-color: var(--focus); background: #3a302b; }
+.chosen-category { color: var(--accent); border: 2px solid var(--accent); padding: .65rem; margin-top: .75rem; border-radius: .5rem; }
+.champion-title, .champion-panel h2 { color: var(--accent); }
+.champion-panel { border-color: var(--accent); background: #14303b; }
+.standings table { width: 100%; text-align: left; font-size: .85rem; border-collapse: collapse; }
+.table-scroll { overflow-x: auto; margin-top: .5rem; }
+.standings th, .standings td { padding: .65rem .5rem; border-bottom: 1px solid var(--line); }
+.player-name { color: var(--player-color); }
+.history-entry { padding-block: .75rem; border-bottom: 1px solid var(--line); }
+.history-entry h3 { font-weight: 750; }
+.result-list, .history-entry ol { list-style: decimal inside; font-size: .9rem; }
+.pool-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .3rem; margin-top: .7rem; }
+.embedded-duel { min-width: 0; }
+@media (max-width: 520px) { .territory { padding: .3rem; } .territory strong { font-size: .9rem; } }

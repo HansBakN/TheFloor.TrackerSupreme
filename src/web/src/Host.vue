@@ -12,6 +12,7 @@ import QuestionMedia from './QuestionMedia.vue'
 import Scoreboard from './Scoreboard.vue'
 import { useShortcuts } from './shortcuts'
 
+defineProps<{ embedded?: boolean }>()
 const live = useLiveDuel('host')
 const library = useLibraryUpdates()
 const setup = reactive<Configuration>({
@@ -40,8 +41,8 @@ function can(action: DuelAction) {
     case 'undo': return session.canUndo
     case 'append': return session.duel.status === 'paused' && session.exhausted && !session.duel.passMilliseconds
     case 'end': return session.duel.status !== 'finished'
-    case 'return': return true
-    case 'restart': return true
+    case 'return': return !session.tournamentId
+    case 'restart': return !session.tournamentId || session.duel.status !== 'finished'
   }
 }
 
@@ -67,8 +68,8 @@ useShortcuts(can, command)
 </script>
 
 <template>
-  <main class="workspace host-workspace">
-    <header class="page-header">
+  <main class="host-workspace" :class="embedded ? 'panel embedded-duel' : 'workspace'">
+    <header v-if="!embedded" class="page-header">
       <div><p class="eyebrow">Live control</p><h1>Host dashboard</h1></div>
       <div class="actions">
         <span class="connection" :class="{ 'connection-live': live.status === 'live' }" role="status">
@@ -81,7 +82,8 @@ useShortcuts(can, command)
     </header>
 
     <p v-if="live.error || fullscreenError" class="notice" role="alert">{{ live.error || fullscreenError }}</p>
-    <LibraryStatus />
+    <LibraryStatus v-if="!embedded" />
+    <p v-if="!embedded && live.host?.tournamentId" class="notice">This duel belongs to Mini Floor. <RouterLink :to="'/tournaments/' + live.host.tournamentId">Resume tournament controls and results</RouterLink>.</p>
 
     <form v-if="!duel" class="panel setup-form" @submit.prevent="live.prepare({ ...setup })">
       <h2>Prepare a duel</h2>
@@ -125,7 +127,7 @@ useShortcuts(can, command)
         <button v-if="duel.status !== 'paused'" :disabled="!can('pause')" @click="command('pause')">Pause <kbd>Esc</kbd></button>
         <button v-else :disabled="!can('resume')" @click="command('resume')">Resume <kbd>R</kbd></button>
         <button :disabled="!can('undo')" @click="command('undo')">Undo <kbd>U</kbd></button>
-        <button :disabled="!can('return')" @click="command('return')">{{ duel.status === 'finished' ? 'Return to setup' : 'End duel and return to setup' }}</button>
+        <button v-if="!live.host?.tournamentId" :disabled="!can('return')" @click="command('return')">{{ duel.status === 'finished' ? 'Return to setup' : 'End duel and return to setup' }}</button>
       </div>
 
       <p v-if="duel.status === 'finished'" class="notice" role="status">
@@ -152,7 +154,7 @@ useShortcuts(can, command)
         <summary>Duel options</summary>
         <div class="actions mt-3">
           <button :disabled="!can('restart')" @click="command('restart')">Restart duel</button>
-          <button :disabled="!can('end')" @click="command('end')">End duel</button>
+          <button v-if="!live.host?.tournamentId" :disabled="!can('end')" @click="command('end')">End duel</button>
           <button :disabled="!can('end')" @click="command('end', 'a')">Declare {{ duel.playerA }} winner</button>
           <button :disabled="!can('end')" @click="command('end', 'b')">Declare {{ duel.playerB }} winner</button>
         </div>

@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
 import Home from './Home.vue'
 import Host from './Host.vue'
+import Tournaments from './Tournaments.vue'
 import Display from './Display.vue'
 import Rehearsal from './Rehearsal.vue'
 import RehearsalDisplay from './RehearsalDisplay.vue'
@@ -16,6 +17,7 @@ const router = createRouter({
   routes: [
     { path: '/', component: Home },
     { path: '/host', component: Host },
+    { path: '/tournaments/:id?', component: Tournaments },
     { path: '/display', component: Display },
     { path: '/display/rehearsal/:id', component: RehearsalDisplay },
     { path: '/rehearsal', component: Rehearsal },
