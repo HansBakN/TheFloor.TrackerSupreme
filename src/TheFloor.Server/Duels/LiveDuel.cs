@@ -52,8 +52,6 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
 
     public AudienceDuel? Audience() => Project(duels.Read(), connections.Read().AudioDisplayId);
 
-    public AudienceTournament? AudienceTournament() => tournaments?.Audience();
-
     public HostState Host() => HostProjection(duels.Read(), connections.Read());
 
     public async Task Broadcast(CancellationToken cancellationToken = default)
@@ -61,7 +59,11 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var snapshot = duels.Exclusive(() => (Session: duels.Read(), Tournament: AudienceTournament()));
+            var snapshot = duels.Exclusive(() =>
+            {
+                var settled = duels.Read();
+                return (Session: settled, Tournament: tournaments?.AudienceFor(settled));
+            });
             var session = snapshot.Session;
             var audience = connections.Read();
             await Task.WhenAll(

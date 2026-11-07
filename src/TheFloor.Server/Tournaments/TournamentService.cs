@@ -146,9 +146,11 @@ public sealed class TournamentService(IDbContextFactory<AppDb> database, Content
         return View(record);
     });
 
-    public AudienceTournament? Audience() => duels.Exclusive(() =>
+    public AudienceTournament? Audience() => duels.Exclusive(() => AudienceFor(duels.Read()));
+
+    // The caller holds the duel gate and supplies the already settled session.
+    internal AudienceTournament? AudienceFor(DuelSession? duel)
     {
-        var duel = duels.Read();
         using var db = database.CreateDbContext();
         var presentation = db.TournamentPresentations.Find(1);
         TournamentRecord? record;
@@ -161,7 +163,7 @@ public sealed class TournamentService(IDbContextFactory<AppDb> database, Content
                 .Where(r => duel?.TournamentId == r.Id || TournamentPersistence.Read(r).Phase != TournamentPhase.Completed)
                 .OrderByDescending(r => TournamentPersistence.Read(r).Created).FirstOrDefault();
         return record is null ? null : TournamentAudience.Project(TournamentPersistence.Read(record));
-    });
+    }
 
     private TournamentView Undo(TournamentRecord record, TournamentState state, TournamentCommand command)
     {

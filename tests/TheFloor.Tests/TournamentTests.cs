@@ -654,6 +654,23 @@ public sealed class TournamentTests : IDisposable
         Assert.Equal(state.Id, recovered.Audience()!.Id);
     }
 
+    [Fact]
+    public void AudienceReadSettlesNaturalExpirationAndImmediatelyShowsTheNextTournamentPhase()
+    {
+        var state = Act(Challenge(Initial()), "launch");
+        var duel = duels.Read()!;
+        duels.Command(new DuelCommand(duel.Id, Guid.NewGuid(), duel.Version, "start", null));
+        clock.Advance(46_000);
+        var audience = tournaments.Audience()!;
+        Assert.Equal(TournamentPhase.DuelReady, audience.Phase);
+        Assert.Null(audience.ActiveDuelId);
+        Assert.Equal(1, audience.Matchup!.ChallengerScore);
+        Assert.Equal(0, audience.Matchup.DefenderScore);
+        Assert.Single(audience.Matchup.Duels);
+        Assert.Equal(DuelStatus.Finished, duels.Read()!.Status);
+        Assert.Equal(state.Id, audience.Id);
+    }
+
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
