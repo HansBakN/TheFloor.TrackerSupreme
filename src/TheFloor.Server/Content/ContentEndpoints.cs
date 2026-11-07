@@ -8,6 +8,10 @@ public static class ContentEndpoints
         group.MapPackages();
         group.MapGet("/", (ContentLibrary library) => library.View());
         group.MapPost("/reload", (ContentLibrary library) => library.View(refresh: true));
+        group.MapPost("/categories/reset", (ResetCategories request, ContentLibrary library) =>
+            Results.Ok(new { backupDirectory = library.ResetCategories(
+                request.Categories ?? throw new ContentException("Confirm all categories."),
+                request.Sets ?? throw new ContentException("Confirm all sets.")) }));
         group.MapPut("/categories/{id:guid}", (Guid id, Save<Category> request, ContentLibrary library) =>
             library.SaveCategory(request.RequiredDefinition with { Id = id }, request.Revision));
         group.MapPost("/categories/{id:guid}/duplicate", (Guid id, ContentLibrary library) =>
@@ -52,6 +56,7 @@ public static class ContentEndpoints
         public T RequiredDefinition => Definition ?? throw new ContentException("A definition is required.");
     }
     public sealed record DeleteCategory(string Revision, Guid[]? ConfirmedSets);
+    public sealed record ResetCategories(Dictionary<Guid, string>? Categories, Dictionary<Guid, string>? Sets);
     public sealed record DeleteSet(string Revision);
     public sealed record DuplicateSet(bool CopyCategories);
 }

@@ -94,5 +94,47 @@ public sealed class ContentJournalTests : IDisposable
         Assert.Equal("Keep pending content", File.ReadAllText(stagedFile));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ResetRecoveryRetainsMediaAndResumesAlreadyArchivedCategories(bool externalEdit)
+    {
+        var journal = new ContentJournal(paths);
+        var stage = journal.CreateStage();
+        var backup = "backups/category-reset-" + Guid.NewGuid().ToString("N");
+        var steps = new List<ContentStep>();
+        var folders = new List<string>();
+        var originals = new List<byte[]>();
+        for (var i = 0; i < 2; i++)
+        {
+            var name = Guid.NewGuid().ToString("D");
+            var folder = Directory.CreateDirectory(Path.Combine(paths.Categories, name)).FullName;
+            var bytes = ContentYaml.Write(new Category { SchemaVersion = 1, Id = Guid.Parse(name), Name = "Geography" });
+            File.WriteAllBytes(Path.Combine(folder, "category.yaml"), bytes);
+            File.WriteAllText(Path.Combine(folder, "media.gif"), "GIF89atest");
+            folders.Add(folder);
+            originals.Add(bytes);
+            steps.Add(new(ContentStepKind.ArchiveCategory, $"library/categories/{name}",
+                $"{backup}/categories/{name}", AtomicFiles.Revision(bytes), null));
+        }
+        journal.WritePlan(stage, steps);
+        var firstBackup = DataPaths.SafePath(paths.Root, steps[0].Source!);
+        Directory.CreateDirectory(Path.GetDirectoryName(firstBackup)!);
+        Directory.Move(folders[0], firstBackup);
+        if (externalEdit)
+        {
+            File.WriteAllText(Path.Combine(folders[1], "category.yaml"), "External edit");
+            Assert.Throws<ContentConflict>(() => new ContentJournal(paths).Recover());
+            Assert.Equal("External edit", File.ReadAllText(Path.Combine(folders[1], "category.yaml")));
+            File.WriteAllBytes(Path.Combine(folders[1], "category.yaml"), originals[1]);
+        }
+        new ContentJournal(paths).Recover();
+        new ContentJournal(paths).Recover();
+        Assert.False(Directory.Exists(stage));
+        Assert.Empty(Directory.EnumerateDirectories(paths.Categories));
+        Assert.All(steps, step => Assert.Equal("GIF89atest",
+            File.ReadAllText(Path.Combine(DataPaths.SafePath(paths.Root, step.Source!), "media.gif"))));
+    }
+
     public void Dispose() => Directory.Delete(paths.Root, recursive: true);
 }

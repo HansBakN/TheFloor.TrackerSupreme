@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace TheFloor.Content;
 
-internal enum ContentStepKind { ReplaceSet, DeleteCategory, InstallCategory, InstallSet }
+internal enum ContentStepKind { ReplaceSet, DeleteCategory, InstallCategory, InstallSet, ArchiveCategory }
 
 internal sealed record ContentStep(ContentStepKind Kind, string Target, string? Source,
     string? Before, string? After);
@@ -83,6 +83,28 @@ internal sealed class ContentJournal(DataPaths paths)
                 AtomicFiles.EnsureRevision(target, step.Before ?? throw new ContentConflict("A category revision is missing."));
                 if (!validateOnly) File.Delete(target);
                 return;
+            case ContentStepKind.ArchiveCategory when segments is ["library", "categories", var folder]:
+            {
+                var destination = step.Source ?? throw new ContentException("A backup destination is required.");
+                if (destination.Split('/') is not ["backups", var backup, "categories", var archivedFolder] ||
+                    !backup.StartsWith("category-reset-", StringComparison.Ordinal) || archivedFolder != folder)
+                    throw new ContentException("Invalid category backup destination.");
+                var archived = DataPaths.SafePath(paths.Root, destination);
+                var before = step.Before ?? throw new ContentConflict("A category revision is missing.");
+                if (!Directory.Exists(target))
+                {
+                    if (Matches(DataPaths.SafePath(archived, "category.yaml"), before)) return;
+                    throw new ContentConflict("The category and its backup are missing or changed.");
+                }
+                AtomicFiles.EnsureRevision(DataPaths.SafePath(target, "category.yaml"), before);
+                if (Path.Exists(archived)) throw new ContentConflict("The category backup destination already exists.");
+                if (!validateOnly)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(archived)!);
+                    Directory.Move(target, archived);
+                }
+                return;
+            }
             case ContentStepKind.InstallCategory when segments is ["library", "categories", var categoryId] &&
                                                        Guid.TryParseExact(categoryId, "D", out _):
                 Install(stage, step, target, "category.yaml", validateOnly);

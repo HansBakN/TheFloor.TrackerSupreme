@@ -113,3 +113,13 @@ Stop the server and copy the entire external data directory, including `library`
 ## Interrupted operations
 
 The server resumes an interrupted set import or shared category deletion from its recovery plan in `state`. It applies only steps that still match their expected revisions and checks already applied steps before continuing. If an external edit conflicts, the library shows the affected path and pauses writes. Preserve your edited copy separately, reconcile the file with the staged operation, and select **Reload files**. Back up the whole data root before manually moving or editing recovery files.
+
+## Category reset backups
+
+In **Categories**, choose **Reset all categories** to empty the entire library. Confirmation names every category and affected set, regardless of the current search. All sets remain, with empty category lists; the active-set selection and existing duel snapshots are preserved. Resolve any library errors before resetting. A stale confirmation is rejected; reload and review the scope again.
+
+Each reset moves complete category folders, including media and unused uploads, into `backups/category-reset-<unique-id>/categories/` under the configured data directory. Original affected `set.yaml` files are saved under the same backup's `sets/` directory. The success message shows the backup's relative path. These backups contain private event content and should be kept outside Git.
+
+To restore, stop the server and copy the backed-up category folders into `library/categories/`. Copy the backed-up set folders into `sets/` if you also want their original memberships. Back up the current data directory first, and resolve folder or UUID collisions without overwriting newer content. Start the server and check the library. To restore only one category, copy only its category folder, then use the UI to add it to sets. Retain the backup until the restored library has been checked.
+
+If reset is interrupted, the recovery journal under `state/content-op-…` resumes it on restart or reload. A conflicting external edit stops recovery and reports the affected path. Preserve that edit and the reset backup before resolving the conflict and reloading; do not delete a pending journal.

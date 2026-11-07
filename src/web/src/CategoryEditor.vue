@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { categoryMedia, json, request } from './api'
-import type { Category, Entry, Question } from './contracts'
+import type { Category, Entry, Library, Question } from './contracts'
 import { moveItem, useDraft, useEditorAction } from './editor'
 import LibraryStatus from './LibraryStatus.vue'
 import PackageImport from './PackageImport.vue'
@@ -18,6 +18,7 @@ const { draft, revision, dirty, stale, load } = useDraft(() => id.value, () => e
 const { busy, error, run } = useEditorAction()
 const newName = ref('')
 const search = ref('')
+const resetNotice = ref('')
 const questionSearch = ref('')
 const questionFilter = ref<'all' | 'enabled' | 'disabled'>('all')
 const selectedQuestion = ref('')
@@ -153,16 +154,41 @@ async function remove() {
   })
   if (deleted) await goTo('')
 }
+
+async function resetCategories() {
+  if (busy.value || !library.data.categories.length) return
+  const snapshot = JSON.parse(JSON.stringify(library.data)) as Library
+  const affected = snapshot.sets.filter(set => set.definition.categoryIds.length)
+  const impact = affected.length ? '\n\nSets that will be emptied: ' + affected.map(set => set.definition.name).join(', ') + '.' : ''
+  if (!window.confirm('Reset all ' + snapshot.categories.length + ' categories in the library, including their questions and media?\n\n' +
+    snapshot.categories.map(category => category.definition.name).join(', ') + impact +
+    '\n\nSets and the active duel are kept. Removed files are backed up in the data directory. Unsaved category edits will be discarded.')) return
+  const reset = await run(() => library.mutate<{ backupDirectory: string | null }>('/categories/reset', json('POST', {
+    categories: Object.fromEntries(snapshot.categories.map(entry => [entry.definition.id, entry.revision])),
+    sets: Object.fromEntries(snapshot.sets.map(entry => [entry.definition.id, entry.revision])),
+  })))
+  if (reset) {
+    load()
+    search.value = ''
+    resetNotice.value = 'All categories reset.' + (reset.backupDirectory ? ' Backup: ' + reset.backupDirectory : '')
+    await goTo('')
+  }
+}
 </script>
 
 <template>
   <main class="workspace">
     <header class="page-header">
       <div><p class="eyebrow">Content library</p><h1>Categories</h1></div>
-      <button type="button" @click="library.refresh(true)">Reload files</button>
+      <div class="actions">
+        <button type="button" :disabled="busy || !library.data.categories.length || !!library.data.errors.length"
+                @click="resetCategories">Reset all categories</button>
+        <button type="button" :disabled="busy" @click="library.refresh(true)">Reload files</button>
+      </div>
     </header>
     <LibraryStatus />
     <p v-if="error" class="notice" role="alert">{{ error }}</p>
+    <p v-if="resetNotice" class="notice" role="status">{{ resetNotice }}</p>
     <div class="editor-grid">
       <section class="panel editor-list">
         <form class="editor-form" @submit.prevent="create">
