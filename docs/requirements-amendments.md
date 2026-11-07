@@ -21,3 +21,7 @@ A prominent **End duel and return to setup** control is available while Ready, R
 The user's November 7, 2026 feature request, tracked in [issue #52](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/52), adds **Reset all categories** to the category editor. Explicit confirmation covers the whole library, including categories hidden by search, their questions and media, and references in every affected set. Sets, the active-set selection and existing duel snapshots remain available.
 
 Reset retains category folders and the original affected set definitions in an external local backup. Confirmation is checked against all category and set revisions. Invalid or ambiguous content must be corrected before resetting. The content journal resumes interrupted resets and preserves conflicting external edits.
+
+## Mini Floor tournament extension (original §3 scope)
+
+The user's November 7, 2026 Mini Floor request authorizes the floor, matchmaking and elimination features specifically defined by the [Mini Floor specification](mini-floor-specification.md). That complete specification is authoritative for this mode. The original specification is preserved. Standalone duels and the amendments above remain applicable. Other tournament formats remain outside scope. See [issue #54](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/54) and the [completion checklist](mini-floor-checklist.md).
