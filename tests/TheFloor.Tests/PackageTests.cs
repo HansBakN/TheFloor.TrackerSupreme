@@ -18,10 +18,56 @@ public sealed class PackageTests : IDisposable
         Assert.Equal(2, DemoContent.Load(directory, packages));
         var view = library.View();
         Assert.Empty(view.Errors);
-        Assert.Equal(4, view.Categories.Length);
+        Assert.Equal(5, view.Categories.Length);
         Assert.Equal(2, view.Sets.Length);
         Assert.Equal(2, view.Sets[0].Definition.CategoryIds.Intersect(view.Sets[1].Definition.CategoryIds).Count());
         Assert.Contains(view.Categories, c => c.Definition.Name == "Demo Image Recognition");
+        var video = Assert.Single(view.Categories, c => c.Definition.Name == "Demo Video Clips").Definition;
+        Assert.Equal(3, video.Questions.Length);
+        Assert.All(video.Questions, q =>
+        {
+            Assert.Equal("video", q.Type);
+            Assert.EndsWith(".webm", q.Media);
+            Media.VerifyFile(library.CategoryFolder(video.Id), q.Media!, "video");
+        });
+    }
+
+    [Fact]
+    public void VideoCategoryRoundTripsThroughZipAndRejectsOverlongClipsOnUploadAndImport()
+    {
+        var (source, export) = Create("video-source");
+        var (destination, import) = Create("video-destination");
+        var clip = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "clip-sample.mp4"));
+        var category = source.SaveCategory(NewCategory("Clips"), null);
+        var path = source.Upload(category.Definition.Id, "clip.mp4", "video/mp4", clip);
+        var question = category.Definition.Questions[0] with { Type = "video", Media = path };
+        var saved = source.SaveCategory(category.Definition with { Questions = [question] }, category.Revision).Definition;
+
+        var result = import.ImportZip(export.ExportCategory(saved.Id), asSet: false, copyConflicts: false);
+        Assert.Equal(saved.Id, result.CategoryId);
+        Assert.Equal(clip, File.ReadAllBytes(destination.MediaFile(saved.Id, path)));
+
+        Assert.Throws<ContentException>(() => source.Upload(saved.Id, "long.mp4", "video/mp4", LongClip()));
+        Assert.Throws<ContentException>(() => source.Upload(saved.Id, "clip.mp4", "image/png", clip));
+        var longZip = Zip(zip =>
+        {
+            var yaml = ContentYaml.Write(saved);
+            using (var entry = zip.CreateEntry($"categories/{saved.Id:D}/category.yaml").Open()) entry.Write(yaml);
+            using (var entry = zip.CreateEntry($"categories/{saved.Id:D}/{path}").Open()) entry.Write(LongClip());
+        });
+        Assert.Throws<ContentException>(() => import.ImportZip(longZip, asSet: false, copyConflicts: true));
+    }
+
+    // Real clip with its mvhd duration rewritten to 30 s (timescale 1000).
+    private static byte[] LongClip()
+    {
+        var bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "clip-sample.mp4"));
+        var at = bytes.AsSpan().IndexOf("mvhd"u8) + 4;
+        var version = bytes[at];
+        Assert.Equal(0, version);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(at + 12), 1000);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(at + 16), 30_000);
+        return bytes;
     }
 
     [Fact]

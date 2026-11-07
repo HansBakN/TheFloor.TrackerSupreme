@@ -40,6 +40,22 @@ public sealed class MediaTests
     }
 
     [Fact]
+    public void ReadsDurationsOfRealEncodedClips()
+    {
+        var mp4 = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "clip-sample.mp4"));
+        Media.Validate("clip.mp4", mp4, mp4.Length, "video/mp4");
+        Assert.InRange(VideoDuration.Mp4(mp4)!.Value, 1.9, 2.1);
+        var demo = Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "demo", "categories"), "*.webm", SearchOption.AllDirectories);
+        Assert.NotEmpty(demo);
+        foreach (var file in demo)
+        {
+            var webm = File.ReadAllBytes(file);
+            Media.Validate(file, webm, webm.Length, "video");
+            Assert.InRange(VideoDuration.WebM(webm)!.Value, 1.9, 2.1);
+        }
+    }
+
+    [Fact]
     public void VerifiesStoredVideoFiles()
     {
         var folder = Directory.CreateTempSubdirectory("floor-video").FullName;

@@ -44,9 +44,9 @@ Open **Duel presets** in setup to save or apply clock, pass penalty, starting-pl
 
 ## Optional demo content
 
-From `artifacts/app`, run `dotnet TheFloor.Server.dll --load-demo` with the server stopped. This loads the bundled examples into the configured external data directory and exits. Start the app and select **Demo Set A** or **Demo Set B** under **Category sets**. The demo sets share General Knowledge and Demo Image Recognition. The loader keeps existing content and reports UUID conflicts.
+From `artifacts/app`, run `dotnet TheFloor.Server.dll --load-demo` with the server stopped. This loads the bundled examples into the configured external data directory and exits. Start the app and select **Demo Set A** or **Demo Set B** under **Category sets**. The demo sets share General Knowledge and Demo Image Recognition. Demo Set B also includes Demo Video Clips, three two-second looping WebM samples. The loader keeps existing content and reports UUID conflicts.
 
-The [examples](examples/demo) contain original dummy questions and color swatches for development. Real event content belongs in the external data directory.
+The [examples](examples/demo) contain original dummy questions, color swatches and short generated video clips for development. Real event content belongs in the external data directory.
 
 ## Development
 

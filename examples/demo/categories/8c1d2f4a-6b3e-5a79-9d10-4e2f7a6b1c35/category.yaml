@@ -1,0 +1,23 @@
+schemaVersion: 1
+id: 8c1d2f4a-6b3e-5a79-9d10-4e2f7a6b1c35
+name: "Demo Video Clips"
+description: "Original two-second looping sample clips for local testing."
+questions:
+  - id: 1f7a3c2e-5d49-5b8a-8e61-2c9d4a7b0e11
+    type: video
+    prompt: "Name the pulsing color."
+    answer: "Red"
+    enabled: true
+    media: video/red-pulse.webm
+  - id: 6b2e9d41-7c35-5f0a-a3d8-9e1b5c4f2a22
+    type: video
+    prompt: "Name the pulsing color."
+    answer: "Blue"
+    enabled: true
+    media: video/blue-pulse.webm
+  - id: 3d8c5a67-1e92-5c4b-b7f0-4a6e2d9c8b33
+    type: video
+    prompt: "Name the pulsing color."
+    answer: "Green"
+    enabled: true
+    media: video/green-pulse.webm
