@@ -54,9 +54,9 @@ Every box stays open until implementation and verification evidence exist. Test 
 - [x] Complete six-player integration: all 2–0 and all 2–1 tournaments, five matchups/five eliminations/one champion/six champion cells/no replay/legal challenges, including wrapped edge.
 - [x] Vue tests for host phases, valid target list, bans/picks, standings/history, errors and destructive confirmation.
 - [x] Playwright full tournament via UI and existing duel engine, separate audience, refresh/restart, correction, champion; visual review at laptop/1080p; isolated test directories.
-- [ ] Existing backend/frontend/browser suites, strict typecheck, warning-free build, production publish, whitespace check and CI pass.
-- [ ] Documentation explains start/run/resume/correction/19-category pool/rules/storage/architecture; progress and GitHub accurate; autonomous diff review, PR and main integration.
-- [ ] Revisit every original section and final acceptance bullet, attach evidence to all boxes, report exact results and remaining limitations without claiming unverified completion.
+- [x] Existing backend/frontend/browser suites, strict typecheck, warning-free build, production publish, whitespace check and CI pass.
+- [x] Documentation explains start/run/resume/correction/19-category pool/rules/storage/architecture; progress and GitHub accurate; autonomous diff review, PR and main integration.
+- [x] Revisit every original section and final acceptance bullet, attach evidence to all boxes, report exact results and remaining limitations without claiming unverified completion.
 
 ## Implementation plan and integration points
 
@@ -103,3 +103,9 @@ All backend evidence below is in [TournamentTests.cs](../tests/TheFloor.Tests/To
 - Browser regression: 14 passing Chromium workflows, including 3 Mini Floor workflows. The final full regression run also passed all 14 workflows, including 1280×720 control visibility. Screenshots of live host/audience, deciding picks and champion/history were visually inspected.
 - Both original specification files have their expected hashes. Real event data, databases, screenshots and test artifacts are excluded from Git. All tournament fixtures use isolated temporary roots.
 - Verification boundary: physical TV/projector hardware and sudden power loss are not tested. Abrupt restart uses the existing durable duel clock checkpoint; no offline time is charged. No Mini Floor requirement is intentionally deferred.
+
+## Delivery verification
+
+The complete implementation is integrated into `main` as `3eb63f7` through [reviewed PR #55](https://github.com/HansBakN/TheFloor.TrackerSupreme/pull/55), resolving [issue #54](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/54). [PR validation](https://github.com/HansBakN/TheFloor.TrackerSupreme/actions/runs/42371777723) passed documentation, Ubuntu and Windows builds/tests, including all browser workflows. The autonomous diff review is recorded on the PR. The feature branch was deleted after squash merge; the local checkout was fast-forwarded to the merged source with no source changes remaining.
+
+All 40 checklist items above are verified by the section-by-section evidence and delivery checks. Both six-player tournament paths run from UI setup through champion declaration, with no external scorekeeping. There are no known unimplemented Mini Floor requirements. The physical hardware/power-loss verification boundary above remains explicit. The final cosmetic follow-up was republished and the three Mini Floor browser workflows passed again; the final 1280×720 screenshot was inspected after the label correction.
