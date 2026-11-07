@@ -13,12 +13,20 @@ public static class TournamentPersistence
         JsonSerializer.Deserialize<TournamentState>(record.Payload)
             ?? throw new ContentException("The tournament could not be restored. Restore a backup of state/app.db.");
 
+    public static void Present(AppDb db, Guid? tournamentId)
+    {
+        var selection = db.TournamentPresentations.Find(1);
+        if (selection is null) db.TournamentPresentations.Add(new TournamentPresentation { TournamentId = tournamentId });
+        else selection.TournamentId = tournamentId;
+    }
+
     public static void RecordFinished(AppDb db, DuelSession duel, DateTimeOffset now)
     {
         if (duel.TournamentId is not { } id) return;
         var record = db.Tournaments.Find(id) ?? throw new ContentConflict("The tournament for this duel is missing.");
         var state = Read(record);
         if (state.Phase != TournamentPhase.Playing || state.ActiveDuelId != duel.Id) return;
+        var previousVersion = state.Version;
         if (duel.Started is not null || duel.Status == DuelStatus.Finished && duel.Winner is not null)
         {
             var consumed = TournamentRules.ConsumeCategory(state, duel.Configuration.CategoryId);
@@ -27,7 +35,7 @@ public static class TournamentPersistence
         }
         if (duel.Status != DuelStatus.Finished || duel.Winner is null)
         {
-            record.Payload = JsonSerializer.Serialize(state);
+            if (state.Version != previousVersion) record.Payload = JsonSerializer.Serialize(state);
             return;
         }
         var next = TournamentRules.RecordResult(state, duel, Random.Shared, now) with { Version = state.Version + 1 };

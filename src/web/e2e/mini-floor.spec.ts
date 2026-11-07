@@ -3,10 +3,10 @@ import type { Page, APIRequestContext } from '@playwright/test'
 import type { TournamentView } from '../src/tournament'
 import { newDataRoot, startServer } from './isolated-server'
 
-async function seed(request: APIRequestContext) {
+async function seed(request: APIRequestContext, count = 19) {
   expect((await request.post('/api/local-host')).status()).toBe(204)
   const ids: string[] = []
-  for (let i = 0; i < 19; i++) {
+  for (let i = 0; i < count; i++) {
     const id = crypto.randomUUID()
     ids.push(id)
     expect((await request.put('/api/library/categories/' + id, { data: { definition: {
@@ -28,13 +28,20 @@ async function phase(page: Page, expected: string) {
   await expect.poll(async () => (await state(page)).state.phase).toBe(expected)
   await expect(page.locator('.tournament-workspace')).toHaveAttribute('data-phase', expected)
 }
-async function initialPicks(page: Page) {
-  for (let i = 0; i < 6; i++) {
-    await expect(page.getByText(`Pick ${i + 1} of 6.`, { exact: false })).toBeVisible()
+async function initialPicks(page: Page, count = 6, display?: Page) {
+  for (let i = 0; i < count; i++) {
+    await expect(page.getByText(`Pick ${i + 1} of ${count}.`, { exact: false })).toBeVisible()
     const before = (await state(page)).state
+    if (display) {
+      await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'initialSelection')
+      await expect(display.getByTestId('audience-phase-title')).toContainText(before.players.find(p => p.id === before.selectingPlayerId)!.name)
+      await expect(display.locator('[aria-label="Category options"] li')).toHaveCount(5)
+      await expect(display.locator('.tournament-audience button')).toHaveCount(0)
+      if (i === 0) await display.screenshot({ path: `test-results/mini-floor-${count}-audience-initial.png` })
+    }
     if (i === 0) {
       await page.reload()
-      await expect(page.getByText('Pick 1 of 6.', { exact: false })).toBeVisible()
+      await expect(page.getByText(`Pick 1 of ${count}.`, { exact: false })).toBeVisible()
       expect((await state(page)).state.offer).toEqual(before.offer)
       expect((await state(page)).state.floor).toEqual(before.floor)
       expect((await state(page)).state.selectionOrder).toEqual(before.selectionOrder)
@@ -57,6 +64,7 @@ async function launch(page: Page, display: Page, winner: 'challenger' | 'defende
   expect(prepared.session.configuration.categoryId).toBe(number === 1 ? matchup.defenderCategoryId : number === 2 ? matchup.challengerCategoryId : matchup.deciderCategoryId)
   await start.click()
   await expect(display.locator('.question-prompt')).toBeVisible()
+  await expect(display.locator('.audience-live-context')).toContainText(`Duel ${number}`)
   await expect(display.locator('body')).not.toContainText('Secret tournament answer')
   if (interact) {
     await page.setViewportSize({ width: 1280, height: 720 })
@@ -79,33 +87,61 @@ async function launch(page: Page, display: Page, winner: 'challenger' | 'defende
   await expect.poll(async () => (await state(page)).state.phase).not.toBe('playing')
 }
 
-for (const deciding of [false, true]) {
-  test(`Mini Floor complete UI tournament ${deciding ? 'with every matchup decided' : 'with five 2–0 matchups'}`, async ({ browser }) => {
+for (const config of [{ count: 6, width: 3, height: 2, deciding: false }, { count: 6, width: 3, height: 2, deciding: true }, { count: 7, width: 4, height: 3, deciding: true }]) {
+  const { count, width, height, deciding } = config
+  test(`Mini Floor complete UI tournament ${count} players ${width}x${height} ${deciding ? 'with every matchup decided' : 'with five 2–0 matchups'}`, async ({ browser }) => {
     test.setTimeout(180_000)
     const root = await newDataRoot()
     const server = await startServer(root.path)
     const host = await browser.newContext({ baseURL: server.origin, viewport: { width: 1280, height: 900 } })
     const audience = await browser.newContext({ baseURL: server.origin, viewport: { width: 1920, height: 1080 } })
+    const outbound: string[] = []
+    if (count === 7) for (const context of [host, audience]) await context.route('**/*', route => {
+      if (new URL(route.request().url()).origin === server.origin) return route.continue()
+      outbound.push(route.request().url()); return route.abort()
+    })
     try {
       expect((await audience.request.get('/api/host/tournaments')).status()).toBe(401)
       expect((await audience.request.post('/api/host/tournaments', { data: {} })).status()).toBe(401)
-      await seed(host.request)
+      await seed(host.request, 3 * count + 1)
       const page = await host.newPage()
       page.setDefaultTimeout(15_000)
       const display = await audience.newPage()
+      const tournamentFrames: unknown[] = []
+      display.on('websocket', socket => socket.on('framereceived', event => {
+        if (typeof event.payload !== 'string') return
+        for (const part of event.payload.split('\u001e').filter(Boolean)) {
+          const message = JSON.parse(part) as { target?: string; arguments?: unknown[] }
+          if (message.target === 'tournament') tournamentFrames.push(message.arguments?.[0])
+          expect(message.target).not.toBe('hostDuel')
+        }
+      }))
       await display.goto('/display')
       await page.goto('/tournaments')
-      await expect(page.getByText('19 eligible categories', { exact: false })).toBeVisible()
-      for (let i = 0; i < 6; i++) await page.getByLabel('Participant ' + (i + 1), { exact: true }).fill('Player ' + (i + 1))
+      await expect(page.getByText(`${3 * count + 1} eligible categories`, { exact: false })).toBeVisible()
+      await page.getByLabel('Number of players', { exact: true }).fill(String(count))
+      await page.getByLabel('Board columns', { exact: true }).fill(String(width))
+      await page.getByLabel('Board rows', { exact: true }).fill(String(height))
+      for (let i = 0; i < count; i++) await page.getByLabel('Participant ' + (i + 1), { exact: true }).fill('Player ' + (i + 1))
       await page.getByRole('button', { name: 'Create tournament', exact: true }).click()
       await expect(page).toHaveURL(/\/tournaments\/[a-f0-9-]+/)
-      await initialPicks(page)
-      for (let m = 0; m < 5; m++) {
+      const created = (await state(page)).state
+      expect(created.floor).toHaveLength(width * height)
+      expect(created.extraAssignments).toHaveLength(width * height - count)
+      expect(created.startingTerritories).toHaveLength(count)
+      await initialPicks(page, count, display)
+      for (let m = 0; m < count - 1; m++) {
         const current = await state(page)
         await expect.poll(async () => page.locator('.territory[data-eligible="true"]').count())
           .toBe(current.state.floor.filter(c => current.eligibleOpponents.includes(c.ownerId)).length)
+        await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'opponentSelection')
+        await expect(display.locator('[aria-label="Opponent options"] li')).toHaveCount(current.eligibleOpponents.length)
+        await expect(display.locator('.territory.eligible')).toHaveCount(current.state.floor.filter(c => current.eligibleOpponents.includes(c.ownerId)).length)
+        if (m === 0) await display.screenshot({ path: `test-results/mini-floor-${count}-audience-opponents.png` })
+        const publicState = await (await audience.request.get('/api/display/tournament')).json()
+        expect(JSON.stringify(publicState)).not.toMatch(/Secret tournament answer|alternatives|notes|commands|questions|mediaRoot/i)
         const cells = current.state.floor.filter(c => c.ownerId === current.state.challengerId)
-        const edgeTarget = current.state.floor.find(c => current.eligibleOpponents.includes(c.ownerId) && cells.some(a => a.y === c.y && Math.abs(a.x - c.x) === 2))
+        const edgeTarget = current.state.floor.find(c => current.eligibleOpponents.includes(c.ownerId) && cells.some(a => a.y === c.y && Math.abs(a.x - c.x) === width - 1))
         const opponent = edgeTarget?.ownerId ?? current.eligibleOpponents[0]
         const opponentName = current.state.players.find(p => p.id === opponent)!.name
         await page.getByRole('button', { name: 'Challenge ' + opponentName, exact: true }).click()
@@ -113,9 +149,11 @@ for (const deciding of [false, true]) {
         await launch(page, display, deciding ? 'defender' : 'challenger')
         if (deciding) {
           await phase(page, 'defenderBan')
+          await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'defenderBan')
           const offer = (await state(page)).state.matchups.at(-1)!.deciderOffer
           await page.getByRole('button', { name: /^Ban · Mini category/ }).first().click()
           await phase(page, 'challengerBans')
+          await expect(display.locator('.audience-options .banned')).toHaveCount(1)
           if (m === 0) {
             await page.reload()
             await expect(page.getByTestId('phase-title')).toContainText('bans two')
@@ -127,27 +165,40 @@ for (const deciding of [false, true]) {
           await available.nth(1).click()
           await page.getByRole('button', { name: 'Confirm two bans (2/2)', exact: true }).click()
           await phase(page, 'defenderPick')
+          await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'defenderPick')
+          await expect(display.locator('.audience-options .banned')).toHaveCount(3)
+          if (m === 0) await display.screenshot({ path: `test-results/mini-floor-${count}-audience-bans.png` })
           if (m === 0) await page.screenshot({ path: 'test-results/mini-floor-decider-pick.png', fullPage: true })
           await page.getByRole('button', { name: /^Choose · Mini category/ }).first().click()
           await launch(page, display, 'challenger')
         }
-        if (m === 4) break
+        if (m === count - 2) break
         await phase(page, 'matchupResult')
+        await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'matchupResult')
+        if (m === 0) await display.screenshot({ path: `test-results/mini-floor-${count}-audience-result.png` })
         await page.getByRole('button', { name: 'Choose winner’s fresh category', exact: true }).click()
         await phase(page, 'winnerCategory')
+        await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'winnerCategory')
         await page.getByRole('button', { name: /^Select Mini category/ }).first().click()
         await phase(page, 'winnerDecision')
+        await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'winnerDecision')
         await page.getByRole('button', { name: m % 2 === 0 ? 'Return to floor' : 'Continue challenging', exact: true }).click()
         await phase(page, 'opponentSelection')
       }
       await phase(page, 'completed')
       await expect(page.getByTestId('phase-title')).toContainText('Mini Floor champion!')
       const result = (await state(page)).state
-      expect(result.matchups).toHaveLength(5)
-      expect(result.players.filter(p => p.eliminationOrder !== null)).toHaveLength(5)
+      expect(tournamentFrames.length).toBeGreaterThan(10)
+      expect(JSON.stringify(tournamentFrames)).not.toMatch(/Secret tournament answer|alternatives|notes|commands|questions|mediaRoot/i)
+      expect(result.matchups).toHaveLength(count - 1)
+      expect(result.players.filter(p => p.eliminationOrder !== null)).toHaveLength(count - 1)
       expect(new Set(result.floor.map(c => c.ownerId))).toEqual(new Set([result.championId]))
       const categories = result.matchups.flatMap(m => m.duels.map(d => d.categoryId))
-      expect(new Set(categories).size).toBe(deciding ? 15 : 10)
+      expect(new Set(categories).size).toBe((count - 1) * (deciding ? 3 : 2))
+      await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'completed')
+      await display.screenshot({ path: `test-results/mini-floor-${count}-audience-champion.png` })
+      await display.reload()
+      await expect(display.getByTestId('audience-phase-title')).toContainText('champion!')
       await page.screenshot({ path: `test-results/mini-floor-${deciding ? 'deciders' : 'sweeps'}-champion.png`, fullPage: true })
       await page.reload()
       await expect(page.getByTestId('phase-title')).toContainText('Mini Floor champion!')
@@ -161,6 +212,7 @@ for (const deciding of [false, true]) {
       await phase(page, 'playing')
       expect((await state(page)).state.players.filter(p => p.eliminationOrder === null)).toHaveLength(2)
       await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
+      await expect(display.getByText('Ready to start', { exact: true })).toBeVisible()
       await page.getByRole('button', { name: 'Start', exact: true }).click()
       const prior = result.matchups.at(-1)!
       const winnerName = result.players.find(p => p.id === prior.winnerId)!.name
@@ -180,11 +232,27 @@ for (const deciding of [false, true]) {
       await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
       const standalone = await (await page.request.get('/api/host/state')).json()
       expect(standalone.session.tournamentId).toBeNull()
+      await expect(display.locator('.tournament-audience')).toHaveCount(0)
+      await expect(display.getByText('Ready to start', { exact: true })).toBeVisible()
       page.once('dialog', dialog => dialog.accept())
       await page.getByRole('button', { name: 'End duel and return to setup', exact: true }).click()
       await page.goto(tournamentUrl)
       await phase(page, 'completed')
       expect((await state(page)).state.championId).toBe(result.championId)
+      await page.getByText('Tournament controls and recovery', { exact: true }).click()
+      await page.getByRole('button', { name: 'Show tournament on audience display', exact: true }).click()
+      await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'completed')
+      await expect(display.getByTestId('audience-phase-title')).toContainText('champion!')
+      page.once('dialog', dialog => dialog.accept())
+      await page.getByRole('button', { name: 'Restart tournament', exact: true }).click()
+      await expect(display.locator('.tournament-audience')).toHaveAttribute('data-phase', 'initialSelection')
+      expect((await state(page)).state.width).toBe(width)
+      expect((await state(page)).state.height).toBe(height)
+      page.once('dialog', dialog => dialog.accept())
+      await page.getByRole('button', { name: 'Delete tournament', exact: true }).click()
+      await expect(page).toHaveURL(/\/tournaments$/)
+      await expect(display.locator('.tournament-audience')).toHaveCount(0)
+      expect(outbound).toEqual([])
     } finally {
       await Promise.allSettled([host.close(), audience.close()]); await server.stop(); await root.remove()
     }
@@ -200,17 +268,20 @@ test('Mini Floor restores an in-progress tournament duel paused after actual bac
     const context = await browser.newContext({ baseURL: server.origin })
     try {
       await seed(context.request)
+      const display = await context.newPage()
+      await display.goto('/display')
       const page = await context.newPage()
       await page.goto('/tournaments')
       for (let i = 0; i < 6; i++) await page.getByLabel('Participant ' + (i + 1), { exact: true }).fill('Recovery ' + (i + 1))
       await page.getByRole('button', { name: 'Create tournament', exact: true }).click()
       await expect(page).toHaveURL(/\/tournaments\/[a-f0-9-]+/)
-      await initialPicks(page)
+      await initialPicks(page, 6, display)
       await page.getByRole('button', { name: /^Challenge Recovery/ }).first().click()
       await page.getByRole('button', { name: 'Prepare tournament duel', exact: true }).click()
       await page.getByRole('button', { name: 'Start', exact: true }).click()
       const before = await (await context.request.get('/api/host/state')).json()
       const tournamentBefore = (await state(page)).state
+      const publicBefore = await (await context.request.get('/api/display/tournament')).json()
       await server.stop()
       server = await startServer(root.path, port)
       await page.reload()
@@ -221,6 +292,8 @@ test('Mini Floor restores an in-progress tournament duel paused after actual bac
       expect(recovered.session.configuration.starter).toBe('b')
       expect(recovered.session.duel.status).toBe('paused')
       expect((await state(page)).state).toEqual(tournamentBefore)
+      expect(await (await context.request.get('/api/display/tournament')).json()).toEqual(publicBefore)
+      await expect(display.getByText('Paused', { exact: true })).toBeVisible()
       expect((await state(page)).state.matchups[0].duels).toHaveLength(0)
       await page.getByRole('button', { name: /^Resume/ }).click()
     } finally { await context.close() }

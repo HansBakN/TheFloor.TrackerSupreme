@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.SignalR;
 using TheFloor.Content;
+using TheFloor.Tournaments;
 
 namespace TheFloor.Duels;
 
@@ -45,7 +46,7 @@ public sealed class DuelHub(LocalHostAccess access, AudienceConnections connecti
 }
 
 public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
-    IHubContext<DuelHub> hub, TimeProvider time)
+    IHubContext<DuelHub> hub, TimeProvider time, TournamentService? tournaments = null)
 {
     private readonly SemaphoreSlim gate = new(1);
 
@@ -58,9 +59,15 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var session = duels.Read();
+            var snapshot = duels.Exclusive(() =>
+            {
+                var settled = duels.Read();
+                return (Session: settled, Tournament: tournaments?.AudienceFor(settled));
+            });
+            var session = snapshot.Session;
             var audience = connections.Read();
             await Task.WhenAll(
+                hub.Clients.Group("audience").SendAsync("tournament", snapshot.Tournament, cancellationToken),
                 hub.Clients.Group("audience").SendAsync("duel", Project(session, audience.AudioDisplayId), cancellationToken),
                 hub.Clients.Group("host").SendAsync("hostDuel", HostProjection(session, audience), cancellationToken));
         }

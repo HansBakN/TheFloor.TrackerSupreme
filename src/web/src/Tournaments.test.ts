@@ -139,3 +139,23 @@ it('displays champion, final floor, standings and accessible full results', asyn
   expect(wrapper.text()).toContain('Matchup history (1)')
   wrapper.unmount()
 })
+
+it('configures a nonrectangular participant count with dynamic names, preview and pool capacity', async () => {
+  view.value = undefined
+  const wrapper = await render('/tournaments')
+  await wrapper.get('input[min="2"]').setValue(7)
+  const dimensions = wrapper.findAll('input[max="64"]')
+  await dimensions[0]!.setValue(3)
+  await dimensions[1]!.setValue(3)
+  expect(wrapper.findAll('input[maxlength="80"]')).toHaveLength(7)
+  expect(wrapper.findAll('.preview-cell')).toHaveLength(9)
+  expect(wrapper.text()).toContain('9 cells · 7 players · 2 spare cells')
+  expect(wrapper.text()).toContain('At least 22 distinct playable categories')
+  expect(button(wrapper, 'Create tournament').attributes('disabled')).toBeDefined()
+  pool.value!.categories = Array.from({ length: 22 }, (_, i) => ({ id: `c${i}`, name: `Category ${i}`, status: 'available', ownerId: null }))
+  await flushPromises()
+  expect(button(wrapper, 'Create tournament').attributes('disabled')).toBeUndefined()
+  await dimensions[1]!.setValue(2)
+  expect(button(wrapper, 'Create tournament').attributes('disabled')).toBeDefined()
+  wrapper.unmount()
+})

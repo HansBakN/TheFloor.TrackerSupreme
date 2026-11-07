@@ -5,9 +5,11 @@ import { useLiveDuel } from './live'
 import { displayId, displayName } from './liveConnection'
 import QuestionMedia from './QuestionMedia.vue'
 import Scoreboard from './Scoreboard.vue'
+import TournamentAudience from './TournamentAudience.vue'
 
 const live = useLiveDuel('audience')
 const duel = computed(() => live.sample?.duel)
+const showTournament = computed(() => !!live.tournament && !(live.tournament.phase === 'playing' && live.tournament.activeDuelId === duel.value?.id && duel.value?.status !== 'finished'))
 const clocks = useClocks(() => live.sample)
 const winner = computed(() => duel.value?.winner === 'a' ? duel.value.playerA : duel.value?.playerB)
 </script>
@@ -18,7 +20,9 @@ const winner = computed(() => duel.value?.winner === 'a' ? duel.value.playerA : 
       <p class="eyebrow">Quiz duel · {{ displayName }}</p>
       <p v-if="live.status !== 'live'" role="status" class="connection">Connecting to the game…</p>
     </div>
-    <template v-if="duel">
+    <TournamentAudience v-if="showTournament && live.tournament" :tournament="live.tournament" />
+    <template v-else-if="duel">
+      <p v-if="live.tournament?.matchup" class="audience-live-context">Mini Floor · Duel {{ live.tournament.matchup.duelNumber }} · {{ live.tournament.players.find(p => p.id === live.tournament?.matchup?.challengerId)?.name }} {{ live.tournament.matchup.challengerScore }} – {{ live.tournament.matchup.defenderScore }} {{ live.tournament.players.find(p => p.id === live.tournament?.matchup?.defenderId)?.name }}</p>
       <h1 class="arena-category">{{ duel.categoryName }}</h1>
       <Scoreboard :duel="duel" :clocks="clocks" />
       <div v-if="duel.status === 'finished'" class="winner" role="status">

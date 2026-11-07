@@ -1,5 +1,6 @@
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { request } from './api'
+import type { AudienceTournament } from './tournament'
 import type { AudienceDuel, HostState } from './contracts'
 
 // getRandomValues also works on a display served over HTTP on the LAN.
@@ -9,7 +10,7 @@ export const displayName = 'DISPLAY ' + idHex.slice(0, 6).toUpperCase()
 
 export type Role = 'host' | 'audience'
 export type ConnectionStatus = 'connecting' | 'live' | 'reconnecting'
-export type LiveUpdate = { role: 'host'; state: HostState } | { role: 'audience'; state: AudienceDuel | null }
+export type LiveUpdate = { role: 'host'; state: HostState } | { role: 'audience'; state: AudienceDuel | null } | { role: 'tournament'; state: AudienceTournament | null }
 
 export function openLiveConnection(
   role: Role,
@@ -33,16 +34,28 @@ export function openLiveConnection(
   }
 
   if (role === 'host') connection.on('hostDuel', (state: HostState) => deliver({ role, state }))
-  else connection.on('duel', (state: AudienceDuel | null) => deliver({ role, state }))
+  else {
+    connection.on('duel', (state: AudienceDuel | null) => deliver({ role, state }))
+    connection.on('tournament', (state: AudienceTournament | null) => deliver({ role: 'tournament', state }))
+  }
 
   async function refresh() {
     const id = ++requestId
     const before = revision
     const options = { signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(5000)]) }
-    const update: LiveUpdate = role === 'host'
-      ? { role, state: await request<HostState>('/api/host/state', options) }
-      : { role, state: await request<AudienceDuel | null>('/api/display/state', options, false) }
-    if (id === requestId && before === revision) deliver(update)
+    if (role === 'host') {
+      const state = await request<HostState>('/api/host/state', options)
+      if (id === requestId && before === revision) deliver({ role, state })
+    } else {
+      const [state, tournament] = await Promise.all([
+        request<AudienceDuel | null>('/api/display/state', options, false),
+        request<AudienceTournament | null>('/api/display/tournament', options, false),
+      ])
+      if (id === requestId && before === revision) {
+        deliver({ role, state })
+        deliver({ role: 'tournament', state: tournament })
+      }
+    }
   }
 
   function retry() {
@@ -82,6 +95,7 @@ export function openLiveConnection(
       window.clearTimeout(timer)
       connection.off('duel')
       connection.off('hostDuel')
+      connection.off('tournament')
       void connection.stop().catch(() => undefined)
     },
   }

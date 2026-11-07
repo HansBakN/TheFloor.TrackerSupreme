@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { json, message, request } from './api'
 import type { AudienceDuel, AudienceStatus, Configuration, DuelAction, HostDuel, HostState, Player } from './contracts'
+import type { AudienceTournament } from './tournament'
 import { openLiveConnection } from './liveConnection'
 import type { ConnectionStatus, LiveUpdate, Role } from './liveConnection'
 
@@ -9,6 +10,7 @@ export interface ClockSample { duel: AudienceDuel; receivedAt: number }
 
 export const useLive = defineStore('live', () => {
   const sample = shallowRef<ClockSample>()
+  const tournament = shallowRef<AudienceTournament>()
   const host = shallowRef<HostDuel>()
   const audienceCount = ref(0)
   const audience = shallowRef<AudienceStatus>()
@@ -20,6 +22,12 @@ export const useLive = defineStore('live', () => {
   let lastCommand: { action: DuelAction; at: number } | undefined
 
   function receive(update: LiveUpdate) {
+    if (update.role === 'tournament') {
+      if (update.state && tournament.value?.id === update.state.id && update.state.version < tournament.value.version) return
+      revision++
+      tournament.value = update.state ?? undefined
+      return
+    }
     const duel = update.role === 'host' ? update.state.session?.duel : update.state
     const previous = sample.value?.duel
     if (duel && previous?.id === duel.id && (
@@ -38,6 +46,7 @@ export const useLive = defineStore('live', () => {
     revision++
     lastCommand = undefined
     sample.value = undefined
+    tournament.value = undefined
     host.value = undefined
     audienceCount.value = 0
     audience.value = undefined
@@ -88,7 +97,7 @@ export const useLive = defineStore('live', () => {
     })
   }
 
-  return { sample, host, audienceCount, audience, status, pending, error, connect, prepare, command }
+  return { sample, tournament, host, audienceCount, audience, status, pending, error, connect, prepare, command }
 })
 
 export function useLiveDuel(role: Role) {

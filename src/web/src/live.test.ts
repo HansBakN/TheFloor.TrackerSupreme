@@ -100,3 +100,18 @@ it('ignores a rapid repeated answer even after the first request completes', asy
     close()
   }
 })
+
+it('receives tournament updates independently of duel samples and rejects stale tournament versions', () => {
+  const live = useLive()
+  const close = live.connect('audience')
+  wire.receive?.({ role: 'audience', state: duel })
+  const tournament = { id: 'tour', version: 4, phase: 'initialSelection' } as import('./tournament').AudienceTournament
+  wire.receive?.({ role: 'tournament', state: tournament })
+  wire.receive?.({ role: 'tournament', state: { ...tournament, version: 3 } })
+  expect(live.tournament?.version).toBe(4)
+  expect(live.sample?.duel).toEqual(duel)
+  wire.receive?.({ role: 'tournament', state: null })
+  expect(live.tournament).toBeUndefined()
+  expect(live.sample?.duel).toEqual(duel)
+  close()
+})

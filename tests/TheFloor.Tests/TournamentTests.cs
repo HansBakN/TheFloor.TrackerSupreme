@@ -561,6 +561,116 @@ public sealed class TournamentTests : IDisposable
         Assert.Null(tournaments.Command(command));
     }
 
+    [Theory]
+    [InlineData(2, 1, 7, false)]
+    [InlineData(3, 2, 2, true)]
+    [InlineData(5, 4, 4, true)]
+    public void ConfiguredTournamentFillsFloorRecoversAndCompletes(int count, int width, int height, bool deciders)
+    {
+        var state = tournaments.Create(Setup() with
+        {
+            Names = Enumerable.Range(1, count).Select(i => $"Configured {i}").ToArray(), Width = width, Height = height,
+        }).State;
+        var assignments = JsonSerializer.Serialize(state.ExtraAssignments);
+        var starting = JsonSerializer.Serialize(state.StartingTerritories);
+        Assert.Equal(width * height, state.Floor.Length);
+        Assert.Equal(count, state.StartingTerritories.Length);
+        AssertDurable(state);
+        state = Act(state, "restart", confirm: true);
+        Assert.Equal(width, state.Width);
+        Assert.Equal(height, state.Height);
+        var floor = state.Floor;
+        state = Initial(state);
+        var used = new HashSet<Guid>();
+        for (var i = 0; i < count - 1; i++)
+        {
+            var targets = tournaments.Read(state.Id).EligibleOpponents;
+            Assert.NotEmpty(targets);
+            state = Act(state, "challenge", targets[0]);
+            state = Finish(state, Player.A);
+            state = Finish(state, deciders ? Player.B : Player.A);
+            if (deciders) state = Finish(Decider(state), Player.A);
+            Assert.Equal(i + 1, state.Matchups.Count(m => m.Completed is not null));
+            foreach (var duel in state.CurrentMatchup!.Duels) Assert.True(used.Add(duel.CategoryId));
+            AssertDurable(state);
+            if (i == count - 2) break;
+            state = Act(state, "next");
+            state = Act(state, "pick", categories: [state.Offer[0]]);
+            state = Act(state, i % 2 == 0 ? "return" : "continue");
+        }
+        Assert.Equal(TournamentPhase.Completed, state.Phase);
+        Assert.Equal(count - 1, state.Matchups.Length);
+        Assert.All(state.Floor, t => Assert.Equal(state.ChampionId, t.OwnerId));
+        state = Act(state, "undoResult", confirm: true);
+        Assert.Equal(2, state.Players.Count(p => p.EliminationOrder is null));
+        Assert.Equal(width * height, state.Floor.Length);
+        AssertDurable(state);
+        Assert.Equal(floor.Select(t => (t.X, t.Y)), state.Floor.Select(t => (t.X, t.Y)));
+        // Initial assignments are durable history, independent of later territory ownership.
+        Assert.NotEqual("[]", starting);
+        Assert.Equal(width * height - count, JsonSerializer.Deserialize<ExtraTerritory[]>(assignments)!.Length);
+    }
+
+    [Fact]
+    public void PublicTournamentProjectionIsSafePersistentAndFollowsPresentationSelection()
+    {
+        var state = Create();
+        var projected = tournaments.Audience()!;
+        Assert.Equal(state.Id, projected.Id);
+        Assert.Equal(state.Offer, projected.Offer);
+        Assert.Equal(state.Floor, projected.Floor);
+        var json = JsonSerializer.Serialize(projected);
+        foreach (var secret in new[] { "Private answer", "Questions", "Answer", "Alternatives", "Notes", "Commands", "Undo", "MediaRoot" })
+            Assert.DoesNotContain(secret, json);
+        var restored = new TournamentService(factory, library, new DuelService(factory, library, paths, clock), clock);
+        Assert.Equal(JsonSerializer.Serialize(projected), JsonSerializer.Serialize(restored.Audience()));
+        state = Initial(state);
+        Assert.Equal(tournaments.Read(state.Id).EligibleOpponents, tournaments.Audience()!.EligibleOpponents);
+        state = Act(state, "present");
+        Assert.Equal(state.Version, tournaments.Audience()!.Version);
+        state = Act(state, "restart", confirm: true);
+        Assert.Equal(TournamentPhase.InitialSelection, tournaments.Audience()!.Phase);
+        Assert.Null(tournaments.Command(new TournamentCommand(state.Id, Guid.NewGuid(), state.Version, "delete", Confirm: true)));
+        Assert.Null(tournaments.Audience());
+    }
+
+    [Fact]
+    public void LegacyTournamentWithoutAllocationOrPresentationMetadataStillRecovers()
+    {
+        var state = Create();
+        using (var db = factory.CreateDbContext())
+        {
+            var legacy = System.Text.Json.Nodes.JsonNode.Parse(db.Tournaments.Find(state.Id)!.Payload)!;
+            legacy.AsObject().Remove("StartingTerritories");
+            legacy.AsObject().Remove("ExtraAssignments");
+            db.Tournaments.Find(state.Id)!.Payload = legacy.ToJsonString();
+            db.SaveChanges();
+            db.Database.ExecuteSqlRaw("DROP TABLE TournamentPresentations");
+            db.Initialize();
+        }
+        var recovered = new TournamentService(factory, library, new DuelService(factory, library, paths, clock), clock);
+        Assert.Equal(state.Floor, recovered.Read(state.Id).State.Floor);
+        Assert.Empty(recovered.Read(state.Id).State.StartingTerritories);
+        Assert.Equal(state.Id, recovered.Audience()!.Id);
+    }
+
+    [Fact]
+    public void AudienceReadSettlesNaturalExpirationAndImmediatelyShowsTheNextTournamentPhase()
+    {
+        var state = Act(Challenge(Initial()), "launch");
+        var duel = duels.Read()!;
+        duels.Command(new DuelCommand(duel.Id, Guid.NewGuid(), duel.Version, "start", null));
+        clock.Advance(46_000);
+        var audience = tournaments.Audience()!;
+        Assert.Equal(TournamentPhase.DuelReady, audience.Phase);
+        Assert.Null(audience.ActiveDuelId);
+        Assert.Equal(1, audience.Matchup!.ChallengerScore);
+        Assert.Equal(0, audience.Matchup.DefenderScore);
+        Assert.Single(audience.Matchup.Duels);
+        Assert.Equal(DuelStatus.Finished, duels.Read()!.Status);
+        Assert.Equal(state.Id, audience.Id);
+    }
+
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
