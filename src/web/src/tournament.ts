@@ -13,10 +13,26 @@ export interface Matchup {
 }
 export interface TournamentState {
   id: string; setId: string; setName: string; players: TournamentPlayer[]; floor: Territory[]; selectionOrder: string[]
-  categories: TournamentCategory[]; width: number; height: number; version: number; phase: TournamentPhase
+  categories: TournamentCategory[]; startingTerritories?: Territory[]; extraAssignments?: { x: number; y: number; ownerId: string; eligibleOwnerIds: string[] }[]; width: number; height: number; version: number; phase: TournamentPhase
   selectionIndex: number; offer: string[]; selectingPlayerId: string | null; challengerId: string | null
   challengerSource: 'random' | 'continued'; matchups: Matchup[]; activeDuelId: string | null; championId: string | null
   seconds: number; passSeconds: number; order: 'ordered' | 'shuffled'; created: string; completed: string | null
+}
+export interface FloorState {
+  width: number; height: number; players: TournamentPlayer[]; floor: Territory[]
+  categories: { id: string; name: string }[]; challengerId: string | null; championId: string | null; phase: TournamentPhase
+}
+export interface AudienceMatchup {
+  challengerId: string; defenderId: string; challengerScore: number; defenderScore: number
+  defenderCategoryId: string; challengerCategoryId: string; deciderCategoryId: string | null
+  deciderOffer: string[]; bans: string[]; duels: TournamentDuel[]; winnerId: string | null; loserId: string | null
+  territoriesGained: number; duelNumber: number; startingPlayerId: string; categoryId: string | null
+}
+export interface AudienceTournament extends FloorState {
+  id: string; version: number; eligibleOpponents: string[]; challengerSource: string; selectingPlayerId: string | null
+  selectionIndex: number; selectionOrder: string[]; offer: string[]; matchup: AudienceMatchup | null
+  completedMatchups: number; totalMatchups: number; activeDuelId: string | null
+  players: (TournamentPlayer & { territories: number; matchupsWon: number; matchupsLost: number; duelsWon: number; duelsLost: number })[]
 }
 export interface Standing {
   id: string; name: string; color: number; active: boolean; categoryId: string | null; territories: number
@@ -26,7 +42,9 @@ export interface TournamentView { state: TournamentState; eligibleOpponents: str
 export interface TournamentSummary { id: string; created: string; phase: TournamentPhase; players: string[]; champion: string | null }
 export interface TournamentPool { setId: string | null; setName: string | null; categories: TournamentCategory[]; errors: string[] }
 const root = '/api/host/tournaments'
-export const playerColors = ['#63ede3', '#ffcb74', '#b7a4ff', '#ff92b6', '#9ce280', '#8ebaff']
+const playerColors = ['#63ede3', '#ffcb74', '#b7a4ff', '#ff92b6', '#9ce280', '#8ebaff']
+export const playerColor = (index: number) => playerColors[index] ?? `hsl(${(index * 137.508 + 187) % 360} 75% 74%)`
+export const minimumCategories = (players: number) => 3 * players + 1
 
 // One host-only source of tournament state. The server supplies all legal targets and rules.
 export function useTournament(id: () => string | undefined) {

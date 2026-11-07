@@ -3,13 +3,23 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Host from './Host.vue'
 import TournamentFloor from './TournamentFloor.vue'
-import { playerColors, useTournament } from './tournament'
+import { playerColor, minimumCategories, useTournament } from './tournament'
 import type { TournamentView } from './tournament'
 const route = useRoute()
 const router = useRouter()
 const tournament = useTournament(() => typeof route.params.id === 'string' ? route.params.id : undefined)
 const { state, view, pool, list, pending, error, loading } = tournament
-const setup = reactive({ names: ['', '', '', '', '', ''], seconds: 45, passSeconds: 3, order: 'shuffled' as 'shuffled' | 'ordered' })
+const setup = reactive({ names: ['', '', '', '', '', ''], seconds: 45, passSeconds: 3, order: 'shuffled' as 'shuffled' | 'ordered', width: 3, height: 2 })
+const playerCount = ref(6)
+const requiredCategories = computed(() => minimumCategories(playerCount.value))
+const boardCells = computed(() => setup.width * setup.height)
+const previewCells = computed(() => Number.isInteger(boardCells.value) && boardCells.value > 0 && boardCells.value <= 4096 ? boardCells.value : 0)
+const validBoard = computed(() => Number.isInteger(playerCount.value) && playerCount.value >= 2 && playerCount.value <= 256 &&
+  Number.isInteger(setup.width) && setup.width >= 1 && setup.width <= 64 && Number.isInteger(setup.height) && setup.height >= 1 && setup.height <= 64 && boardCells.value >= playerCount.value)
+watch(playerCount, count => {
+  if (!Number.isInteger(count) || count < 2 || count > 256) return
+  setup.names = Array.from({ length: count }, (_, i) => setup.names[i] ?? '')
+})
 const bans = ref<string[]>([])
 const current = computed(() => state.value?.matchups.at(-1))
 const unfinished = computed(() => list.value.find(t => t.phase !== 'completed'))
@@ -56,7 +66,7 @@ async function destructive(action: 'undoResult' | 'restart' | 'delete') {
 <template>
   <main class="workspace tournament-workspace" :data-phase="state?.phase">
     <header class="page-header">
-      <div><p class="eyebrow">Six players · one champion</p><h1>Mini Floor</h1></div>
+      <div><p class="eyebrow">{{ state?.players.length ?? playerCount }} players · one champion</p><h1>Mini Floor</h1></div>
       <div class="actions">
         <RouterLink class="button" to="/tournaments">Tournaments</RouterLink>
         <a class="button" href="/display" target="_blank" rel="noopener">Open audience display</a>
@@ -76,9 +86,19 @@ async function destructive(action: 'undoResult' | 'restart' | 'delete') {
       </section>
       <form class="panel setup-form" @submit.prevent="create">
         <h2>Create a Mini Floor tournament</h2>
-        <p>Six participants receive random territories on a 3 × 2 floor. Choose categories, challenge wrapped neighbors and win best-of-three matchups.</p>
+        <p>Choose your player count and board dimensions. Players receive random starting cells, then spare cells are randomly assigned to adjacent owners until the floor is full.</p>
+        <div class="form-grid">
+          <label>Number of players<input v-model.number="playerCount" type="number" required min="2" max="256"></label>
+          <label>Board columns<input v-model.number="setup.width" type="number" required min="1" max="64"></label>
+          <label>Board rows<input v-model.number="setup.height" type="number" required min="1" max="64"></label>
+        </div>
+        <p>{{ boardCells }} cells · {{ playerCount }} players · {{ Math.max(0, boardCells - playerCount) }} spare cells · {{ Math.max(0, playerCount - 1) }} matchups</p>
+        <div class="board-preview" aria-label="Board layout preview" :style="{ gridTemplateColumns: `repeat(${Math.max(1, setup.width)}, minmax(0, 1fr))` }"><span v-for="cell in previewCells" :key="cell" class="preview-cell">{{ cell }}</span></div>
+        <p class="muted">Preview shows cells only; positions are randomized on creation.</p>
+        <p class="muted">Spare cells go to a random adjacent owner, including across wrapped edges. Newly assigned cells help fill later gaps. Assignments are saved once.</p>
+        <p v-if="!validBoard" class="notice">Choose 2–256 players and 1–64 rows/columns, with at least one cell per player.</p>
         <p>Active set: <strong>{{ pool?.setName ?? 'Choose a category set' }}</strong> · {{ pool?.categories.length ?? 0 }} eligible categories</p>
-        <p v-if="(pool?.categories.length ?? 0) < 19" class="notice">At least 19 distinct playable categories in the active set are required to guarantee every five-category draw. Add categories with enabled questions before starting.</p>
+        <p v-if="(pool?.categories.length ?? 0) < requiredCategories" class="notice">At least {{ requiredCategories }} distinct playable categories in the active set are required to guarantee every five-category draw. Add categories with enabled questions before starting.</p>
         <p v-for="problem in pool?.errors" :key="problem" class="notice">{{ problem }}</p>
         <RouterLink to="/sets">Manage the active set</RouterLink>
         <details><summary>Review eligible category pool ({{ pool?.categories.length ?? 0 }})</summary><ul class="pool-list"><li v-for="item in pool?.categories" :key="item.id">{{ item.name }}</li></ul></details>
@@ -90,16 +110,16 @@ async function destructive(action: 'undoResult' | 'restart' | 'delete') {
         </div>
         <p class="muted">Duel 1: defender’s category, defender first. Duel 2: challenger’s category, challenger first. At 1–1: defender bans one, challenger bans two, defender picks, challenger starts.</p>
         <p v-if="unfinished" class="notice">Resume or delete the unfinished tournament before creating another.</p>
-        <button class="primary" :disabled="pending || !!unfinished || !pool || pool.categories.length < 19 || !!pool.errors.length">Create tournament</button>
+        <button class="primary" :disabled="pending || !!unfinished || !pool || pool.categories.length < requiredCategories || !validBoard || !!pool.errors.length">Create tournament</button>
       </form>
     </template>
 
     <template v-if="state && view">
       <section class="panel tournament-context" aria-live="polite">
-        <p class="eyebrow">{{ state.setName }} · {{ state.matchups.filter(m => m.completed).length }} / 5 matchups complete · {{ state.seconds }}s / {{ state.passSeconds }}s pass</p>
+        <p class="eyebrow">{{ state.setName }} · {{ state.matchups.filter(m => m.completed).length }} / {{ state.players.length - 1 }} matchups complete · {{ state.seconds }}s / {{ state.passSeconds }}s pass</p>
         <h2 :class="{ 'champion-title': state.phase === 'completed' }" data-testid="phase-title">{{ phaseTitle }}</h2>
         <p v-if="state.challengerId && state.phase === 'opponentSelection'">{{ state.challengerSource === 'random' ? 'Randomly selected challenger' : 'Continuing after a victory' }}. Choose one highlighted opponent below.</p>
-        <p v-if="state.phase === 'initialSelection'">Pick {{ state.selectionIndex + 1 }} of 6. Choose one; the other four remain available. Selection order: {{ state.selectionOrder.map(name).join(' → ') }}.</p>
+        <p v-if="state.phase === 'initialSelection'">Pick {{ state.selectionIndex + 1 }} of {{ state.players.length }}. Choose one; the other four remain available. Selection order: {{ state.selectionOrder.map(name).join(' → ') }}.</p>
         <template v-if="current">
           <p data-testid="matchup-score"><strong>Challenger {{ name(current.challengerId) }} {{ score(current.challengerId) }} – {{ score(current.defenderId) }} {{ name(current.defenderId) }} Defender</strong></p>
           <p class="muted">Duel 1: {{ category(current.defenderCategoryId) }} · {{ name(current.defenderId) }} first. Duel 2: {{ category(current.challengerCategoryId) }} · {{ name(current.challengerId) }} first. Decider: {{ name(current.challengerId) }} first.</p>
@@ -147,12 +167,12 @@ async function destructive(action: 'undoResult' | 'restart' | 'delete') {
         <div class="actions mt-3"><button class="primary" :disabled="pending" @click="tournament.command('continue')">Continue challenging</button><button :disabled="pending" @click="tournament.command('return')">Return to floor</button></div>
       </section>
       <section v-if="state.phase === 'completed'" class="panel champion-panel" role="status">
-        <h2>{{ name(state.championId) }} wins Mini Floor!</h2><p>All six territories · five completed matchups · {{ state.matchups.flatMap(m => m.duels).length }} duels. Review the final floor, standings and results below.</p>
+        <h2>{{ name(state.championId) }} wins Mini Floor!</h2><p>All {{ state.floor.length }} territories · {{ state.players.length - 1 }} completed matchups · {{ state.matchups.flatMap(m => m.duels).length }} duels. Review the final floor, standings and results below.</p>
       </section>
 
       <section class="panel standings"><h2>Standings</h2><div class="table-scroll"><table>
         <thead><tr><th>Player</th><th>Status</th><th>Category</th><th>Territories</th><th>Matchups W–L</th><th>Duels W–L</th><th>Eliminated</th></tr></thead>
-        <tbody><tr v-for="player in view.standings" :key="player.id" :style="{ '--player-color': playerColors[player.color] }"><th class="player-name">{{ player.name }}</th><td>{{ player.id === state.championId ? 'Champion' : player.active ? 'Active' : 'Eliminated' }}</td><td>{{ category(player.categoryId) }}</td><td>{{ player.territories }}</td><td>{{ player.matchupsWon }}–{{ player.matchupsLost }} ({{ player.matchupsPlayed }} played)</td><td>{{ player.duelsWon }}–{{ player.duelsLost }}</td><td>{{ player.eliminationOrder ?? '—' }}</td></tr></tbody>
+        <tbody><tr v-for="player in view.standings" :key="player.id" :style="{ '--player-color': playerColor(player.color) }"><th class="player-name">{{ player.name }}</th><td>{{ player.id === state.championId ? 'Champion' : player.active ? 'Active' : 'Eliminated' }}</td><td>{{ category(player.categoryId) }}</td><td>{{ player.territories }}</td><td>{{ player.matchupsWon }}–{{ player.matchupsLost }} ({{ player.matchupsPlayed }} played)</td><td>{{ player.duelsWon }}–{{ player.duelsLost }}</td><td>{{ player.eliminationOrder ?? '—' }}</td></tr></tbody>
       </table></div></section>
       <details class="panel" :open="state.phase === 'completed'"><summary>Matchup history ({{ state.matchups.length }})</summary>
         <article v-for="(matchup, i) in state.matchups" :key="matchup.id" class="history-entry"><h3>Matchup {{ i + 1 }} · {{ name(matchup.challengerId) }} vs {{ name(matchup.defenderId) }}</h3>
@@ -162,6 +182,7 @@ async function destructive(action: 'undoResult' | 'restart' | 'delete') {
       </details>
       <details class="panel"><summary>Tournament controls and recovery</summary><p class="muted">Every confirmed action is saved. Correction restores the state before the latest recorded result, rolls back later choices and prepares that duel again with fresh clocks.</p>
         <div class="actions mt-3"><button :disabled="pending || !view.canUndo" @click="destructive('undoResult')">Undo latest duel result</button><button :disabled="pending" @click="destructive('restart')">Restart tournament</button><button :disabled="pending" @click="destructive('delete')">Delete tournament</button></div>
+        <button class="mt-3" :disabled="pending" @click="tournament.command('present')">Show tournament on audience display</button>
         <p class="data-path">Tournament {{ state.id }} · revision {{ state.version }} · {{ state.phase }}</p>
       </details>
     </template>
