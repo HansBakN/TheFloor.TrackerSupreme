@@ -32,6 +32,8 @@ Manage text, image, and audio questions from the category editor. The [content f
 
 Use **Export set ZIP** to share an entire event, or **Export category ZIP** for a single category and its media. Import a package from the matching editor. The [content format guide](docs/content-format.md#backup-and-transfer) explains full backups and restores.
 
+To clear the entire category library, open **Categories → Reset all categories** and confirm the listed categories and affected sets. This removes all categories, questions and media from the library and empties the sets. Sets, the active-set selection and existing duel snapshots are retained. Removed folders and original affected set definitions are backed up under `backups/category-reset-…` in your data directory; the success message shows the backup location. See the [restore instructions](docs/content-format.md#category-reset-backups).
+
 ## Rehearse and pair displays
 
 Open **Rehearsal** from the host dashboard to check the active set and preview a question on a separate device. The rehearsal link has its own volume and fullscreen controls. End the rehearsal to clear that preview.

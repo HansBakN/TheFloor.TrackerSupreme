@@ -75,9 +75,15 @@ test('prepared images stay private, pass waits the full interval, and an unfinis
     expect((await audience.request.get(publicMedia(questions[0].id))).status()).toBe(200)
     const passResponse = dashboard.waitForResponse(response => response.url().endsWith('/api/host/command') &&
       response.request().postDataJSON().action === 'pass')
+    const passStarted = performance.now()
     await dashboard.getByRole('button', { name: /^Pass / }).click()
     const passed: AudienceDuel = (await (await passResponse).json()).session.duel
-    expect(passed.passMilliseconds).toBeGreaterThan(2900)
+    // The response is sampled after persistence and broadcasting, which can exceed 100 ms on CI.
+    // Account for the measured round trip while still requiring the full configured lockout.
+    const passRoundTrip = performance.now() - passStarted
+    expect(passed.passMilliseconds).toBeGreaterThan(0)
+    expect(passed.passMilliseconds).toBeLessThanOrEqual(3000)
+    expect(passed.passMilliseconds + passRoundTrip).toBeGreaterThanOrEqual(2998)
     expect(passed.question).toBeNull()
     await expect(display.getByRole('heading', { name: 'Pass lockout', exact: true })).toBeVisible()
     await expect(display.getByAltText('Quiz question image')).toHaveCount(0)

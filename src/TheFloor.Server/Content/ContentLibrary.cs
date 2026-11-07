@@ -157,6 +157,60 @@ public sealed class ContentLibrary(DataPaths paths, IDbContextFactory<AppDb> dat
         return true;
     });
 
+    public string? ResetCategories(Dictionary<Guid, string> confirmedCategories, Dictionary<Guid, string> confirmedSets) => Exclusive(() =>
+    {
+        if (errors.Length != 0)
+            throw new ContentConflict("Resolve the library errors and reload before resetting categories.");
+        EnsureConfirmed(categories, confirmedCategories);
+        EnsureConfirmed(sets, confirmedSets);
+        if (categories.Count == 0) return null;
+
+        var backup = $"backups/category-reset-{Guid.NewGuid():N}";
+        var stage = Journal.CreateStage();
+        try
+        {
+            var steps = new List<ContentStep>();
+            foreach (var set in sets.Values.Where(s => s.Entry.Definition.CategoryIds.Length > 0))
+            {
+                var original = AtomicFiles.ReadDefinition(set.Path);
+                AtomicFiles.EnsureRevision(set.Path, set.Entry.Revision);
+                if (AtomicFiles.Revision(original) != set.Entry.Revision)
+                    throw new ContentConflict("A set changed. Reload and confirm the reset again.");
+                var folder = Path.GetFileName(Path.GetDirectoryName(set.Path)!);
+                var backupFile = DataPaths.SafePath(paths.Root, $"{backup}/sets/{folder}/set.yaml");
+                Directory.CreateDirectory(Path.GetDirectoryName(backupFile)!);
+                AtomicFiles.Write(backupFile, original);
+                var bytes = ContentYaml.WriteBounded(set.Entry.Definition with { CategoryIds = [] });
+                var source = $"set-{steps.Count}.yaml";
+                AtomicFiles.Write(DataPaths.SafePath(stage, source), bytes);
+                steps.Add(new(ContentStepKind.ReplaceSet, RelativeToRoot(set.Path), source,
+                    set.Entry.Revision, AtomicFiles.Revision(bytes)));
+            }
+            foreach (var category in categories.Values)
+            {
+                var folder = Path.GetDirectoryName(category.Path)!;
+                steps.Add(new(ContentStepKind.ArchiveCategory, RelativeToRoot(folder),
+                    $"{backup}/categories/{Path.GetFileName(folder)}", category.Entry.Revision, null));
+            }
+            Journal.WritePlan(stage, steps);
+            Journal.Apply(stage);
+        }
+        finally
+        {
+            ContentJournal.DiscardUncommitted(stage);
+        }
+        Scan();
+        return backup;
+    });
+
+    private static void EnsureConfirmed<T>(Dictionary<Guid, Stored<T>> current, Dictionary<Guid, string> confirmed)
+    {
+        if (current.Count != confirmed.Count || current.Any(item =>
+                !confirmed.TryGetValue(item.Key, out var revision) || revision != item.Value.Entry.Revision))
+            throw new ContentConflict("The library changed. Reload and confirm the reset again.");
+        foreach (var item in current.Values) AtomicFiles.EnsureRevision(item.Path, item.Entry.Revision);
+    }
+
     public string Upload(Guid id, string fileName, string mime, byte[] bytes) => Exclusive(() =>
     {
         var folder = CategoryFolder(id);

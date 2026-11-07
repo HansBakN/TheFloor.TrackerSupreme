@@ -181,6 +181,67 @@ public sealed class ContentTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => new DataPaths(Path.Combine(alias, "event"), publicRoot));
     }
 
+    [Fact]
+    public void ResetArchivesAllCategoriesAndMediaAndPreservesSetsAndActiveSelection()
+    {
+        var first = library.SaveCategory(Category(), null);
+        var second = library.SaveCategory(Category(), null);
+        var media = library.Upload(first.Definition.Id, "test.gif", "image/gif", "GIF89atest"u8.ToArray());
+        var set = library.SaveSet(Set(first.Definition.Id) with { CategoryIds = [first.Definition.Id, second.Definition.Id] }, null);
+        library.SaveSet(Set(first.Definition.Id), null);
+        library.Activate(set.Definition.Id);
+        var before = library.View();
+        var backup = library.ResetCategories(before.Categories.ToDictionary(c => c.Definition.Id, c => c.Revision),
+            before.Sets.ToDictionary(s => s.Definition.Id, s => s.Revision));
+
+        var after = library.View(refresh: true);
+        Assert.Empty(after.Categories);
+        Assert.Empty(after.Errors);
+        Assert.Equal(set.Definition.Id, after.ActiveSetId);
+        Assert.Equal(2, after.Sets.Length);
+        Assert.All(after.Sets, s => Assert.Empty(s.Definition.CategoryIds));
+        Assert.Empty(Directory.EnumerateDirectories(paths.Categories));
+        Assert.Equal("GIF89atest"u8.ToArray(), File.ReadAllBytes(DataPaths.SafePath(paths.Root,
+            $"{backup}/categories/{first.Definition.Id:D}/{media}")));
+        var originalSet = ContentYaml.Read<CategorySet>(File.ReadAllBytes(DataPaths.SafePath(paths.Root,
+            $"{backup}/sets/{set.Definition.Id:D}/set.yaml")));
+        Assert.Equal(set.Definition.CategoryIds, originalSet.CategoryIds);
+        Assert.Throws<ContentConflict>(() => library.ResetCategories(
+            before.Categories.ToDictionary(c => c.Definition.Id, c => c.Revision),
+            before.Sets.ToDictionary(s => s.Definition.Id, s => s.Revision)));
+        Assert.Null(library.ResetCategories([], after.Sets.ToDictionary(s => s.Definition.Id, s => s.Revision)));
+    }
+
+    [Theory]
+    [InlineData("category")]
+    [InlineData("set")]
+    [InlineData("added")]
+    [InlineData("invalid")]
+    [InlineData("duplicate")]
+    public void ResetRejectsAChangedOrInvalidLibraryWithoutRemovingContent(string change)
+    {
+        var category = library.SaveCategory(Category(), null);
+        var set = library.SaveSet(Set(category.Definition.Id), null);
+        var before = library.View();
+        switch (change)
+        {
+            case "category": library.SaveCategory(category.Definition with { Name = "External edit" }, category.Revision); break;
+            case "set": library.SaveSet(set.Definition with { Name = "External edit" }, set.Revision); break;
+            case "added": library.SaveCategory(Category(), null); break;
+            case "invalid": File.WriteAllText(Path.Combine(library.CategoryFolder(category.Definition.Id), "category.yaml"), "name: [bad"); break;
+            case "duplicate":
+                var duplicate = Directory.CreateDirectory(Path.Combine(paths.Categories, "duplicate")).FullName;
+                File.WriteAllBytes(Path.Combine(duplicate, "category.yaml"), ContentYaml.Write(category.Definition));
+                break;
+        }
+        Assert.Throws<ContentConflict>(() => library.ResetCategories(
+            before.Categories.ToDictionary(c => c.Definition.Id, c => c.Revision),
+            before.Sets.ToDictionary(s => s.Definition.Id, s => s.Revision)));
+        Assert.True(File.Exists(Path.Combine(paths.Categories, category.Definition.Id.ToString("D"), "category.yaml")));
+        Assert.Equal(category.Definition.Id, Assert.Single(Assert.Single(library.View().Sets).Definition.CategoryIds));
+        Assert.False(Directory.Exists(Path.Combine(paths.Root, "backups")));
+    }
+
     private static Category Category() => new()
     {
         SchemaVersion = 1, Id = Guid.NewGuid(), Name = "Geography",

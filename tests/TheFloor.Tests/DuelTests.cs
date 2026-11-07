@@ -404,6 +404,27 @@ public sealed class DuelTests : IDisposable
         Assert.Equal(next.Id, duels.Read()!.Id);
     }
 
+    [Fact]
+    public void CategoryResetPreservesLiveAndRecoverableDuelSnapshotsAndMedia()
+    {
+        var category = Assert.Single(library.View().Categories);
+        var uploaded = library.Upload(categoryId, "original.gif", "image/gif", "GIF89atest"u8.ToArray());
+        var question = category.Definition.Questions[0] with { Type = "image", Media = uploaded };
+        library.SaveCategory(category.Definition with { Questions = [question, .. category.Definition.Questions.Skip(1)] }, category.Revision);
+        var running = Apply(Prepare(), "start");
+        var before = library.View();
+        library.ResetCategories(before.Categories.ToDictionary(c => c.Definition.Id, c => c.Revision),
+            before.Sets.ToDictionary(s => s.Definition.Id, s => s.Revision));
+        Assert.Equal(running.Version, duels.Read()!.Version);
+        Assert.Equal(question.Id, duels.Read()!.Current!.Id);
+        Assert.Equal("GIF89atest"u8.ToArray(), File.ReadAllBytes(duels.CurrentMedia(running.Id, question.Id)));
+        var recovered = new DuelService(factory, library, paths, clock);
+        Assert.Equal(DuelStatus.Paused, recovered.Read()!.Status);
+        Assert.Equal(question.Id, recovered.Read()!.Current!.Id);
+        Assert.Equal("GIF89atest"u8.ToArray(), File.ReadAllBytes(recovered.CurrentMedia(running.Id, question.Id)));
+        Assert.Equal("Question 2", Apply(running, "correct").Current!.Prompt);
+    }
+
     private DuelSession Prepare(int seconds = 45) => duels.Prepare(new DuelConfiguration("Martin", "Thomas",
         categoryId, seconds, 3, StartingPlayer.A, QuestionOrder.Ordered));
 

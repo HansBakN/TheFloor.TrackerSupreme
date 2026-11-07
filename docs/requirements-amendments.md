@@ -15,3 +15,9 @@ Pause freezes the clock and lockout together. Resume continues their remaining d
 ## Ending an unfinished duel (§13 additional controls)
 
 A prominent **End duel and return to setup** control is available while Ready, Running or Paused, including during a lockout. It requires confirmation, stops the duel, archives a completed record without a winner and clears the current session atomically. The audience returns to its waiting screen. Manual winner declaration and return after normal completion remain available.
+
+## Resetting all categories (§§4.2, 5.6, 8, 12 and 18)
+
+The user's November 7, 2026 feature request, tracked in [issue #52](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/52), adds **Reset all categories** to the category editor. Explicit confirmation covers the whole library, including categories hidden by search, their questions and media, and references in every affected set. Sets, the active-set selection and existing duel snapshots remain available.
+
+Reset retains category folders and the original affected set definitions in an external local backup. Confirmation is checked against all category and set revisions. Invalid or ambiguous content must be corrected before resetting. The content journal resumes interrupted resets and preserves conflicting external edits.
