@@ -9,7 +9,7 @@ public sealed record AudienceDuel(Guid Id, long Version, DuelStatus Status, stri
     string PlayerA, string PlayerB, double AMilliseconds, double BMilliseconds, Player Active,
     Player? Winner, PublicQuestion? Question, long SampledAt, Guid? AudioDisplayId, double PassMilliseconds);
 public sealed record HostDuel(AudienceDuel Duel, Guid CategorySetId, DuelConfiguration Configuration,
-    string? Answer, string[] Alternatives, string? Notes, bool CanUndo, bool Exhausted);
+    string? Answer, string[] Alternatives, string? Notes, bool CanUndo, bool Exhausted, Guid? TournamentId = null);
 public sealed record HostState(HostDuel? Session, int AudienceCount, AudienceStatus Audience);
 
 public sealed class DuelHub(LocalHostAccess access, AudienceConnections connections, LiveDuel live) : Hub
@@ -73,7 +73,7 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
     private HostState HostProjection(DuelSession? session, AudienceStatus audience) => new(session is null ? null :
         new HostDuel(Project(session, audience.AudioDisplayId, host: true)!, session.CategorySetId, session.Configuration,
             session.Current?.Answer, session.Current?.Alternatives ?? [], session.Current?.Notes,
-            session.Undo is not null, session.Exhausted), audience.Displays.Length, audience);
+            session.Undo is not null, session.Exhausted, session.TournamentId), audience.Displays.Length, audience);
 
     private AudienceDuel? Project(DuelSession? session, Guid? audioDisplayId, bool host = false)
     {

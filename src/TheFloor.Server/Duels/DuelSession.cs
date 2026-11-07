@@ -17,6 +17,8 @@ public sealed record DuelUndo(int Index, Player Active, long ATicks, long BTicks
 public sealed record DuelSession(Guid Id, Guid MediaRootId, Guid CategorySetId, string CategoryName, DuelConfiguration Configuration,
     Question[] Questions, Player First, Player Active, long ATicks, long BTicks)
 {
+    public Guid? TournamentId { get; init; }
+    public Guid? MatchupId { get; init; }
     public long Version { get; init; } = 1;
     public DuelStatus Status { get; init; } = DuelStatus.Ready;
     public int Index { get; init; }
