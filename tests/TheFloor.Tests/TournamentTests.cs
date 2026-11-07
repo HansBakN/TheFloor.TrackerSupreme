@@ -355,6 +355,14 @@ public sealed class TournamentTests : IDisposable
         Assert.Equal(played.Count, standings.Sum(p => p.DuelsLost));
         Assert.Throws<ContentConflict>(() => Act(state, "launch"));
         Assert.Throws<ContentConflict>(() => Act(state, "challenge", state.Players[0].Id));
+        var last = duels.Read()!;
+        duels.Command(new DuelCommand(last.Id, Guid.NewGuid(), last.Version, "return", null));
+        Assert.Null(duels.Read());
+        Assert.Equal(state.ChampionId, tournaments.Read(state.Id).State.ChampionId);
+        var standalone = duels.Prepare(new DuelConfiguration("Standalone A", "Standalone B", state.Categories[0].Id));
+        Assert.Null(standalone.TournamentId);
+        duels.Command(new DuelCommand(standalone.Id, Guid.NewGuid(), standalone.Version, "return", null));
+        Assert.All(Create().Categories, c => Assert.Equal(CategoryStatus.Available, c.Status));
     }
 
     [Fact]

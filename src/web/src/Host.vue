@@ -41,7 +41,7 @@ function can(action: DuelAction) {
     case 'undo': return session.canUndo
     case 'append': return session.duel.status === 'paused' && session.exhausted && !session.duel.passMilliseconds
     case 'end': return session.duel.status !== 'finished'
-    case 'return': return !session.tournamentId
+    case 'return': return !session.tournamentId || session.duel.status === 'finished'
     case 'restart': return !session.tournamentId || session.duel.status !== 'finished'
   }
 }
@@ -127,7 +127,7 @@ useShortcuts(can, command)
         <button v-if="duel.status !== 'paused'" :disabled="!can('pause')" @click="command('pause')">Pause <kbd>Esc</kbd></button>
         <button v-else :disabled="!can('resume')" @click="command('resume')">Resume <kbd>R</kbd></button>
         <button :disabled="!can('undo')" @click="command('undo')">Undo <kbd>U</kbd></button>
-        <button v-if="!live.host?.tournamentId" :disabled="!can('return')" @click="command('return')">{{ duel.status === 'finished' ? 'Return to setup' : 'End duel and return to setup' }}</button>
+        <button v-if="!live.host?.tournamentId || duel.status === 'finished'" :disabled="!can('return')" @click="command('return')">{{ duel.status === 'finished' ? 'Return to setup' : 'End duel and return to setup' }}</button>
       </div>
 
       <p v-if="duel.status === 'finished'" class="notice" role="status">

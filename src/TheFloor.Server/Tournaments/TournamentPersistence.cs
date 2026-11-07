@@ -49,6 +49,9 @@ public static class TournamentPersistence
         using var db = factory.CreateDbContext();
         var record = db.Tournaments.Find(id);
         var tournament = record is null ? null : Read(record);
+        // Retiring an already recorded duel leaves its tournament history and checkpoint intact.
+        if (command.Action == "return" && duel.Status == DuelStatus.Finished && tournament is not null &&
+            tournament.ActiveDuelId != duel.Id) return;
         if (tournament?.ActiveDuelId != duel.Id || tournament.Phase != TournamentPhase.Playing)
             throw new ContentConflict("This result is recorded. Use Mini Floor's correction control to change it.");
         if (command.Action == "return" || command.Action == "end" && command.Winner is null)
