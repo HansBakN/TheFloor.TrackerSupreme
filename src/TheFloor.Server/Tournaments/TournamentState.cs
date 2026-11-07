@@ -24,6 +24,7 @@ public sealed record Matchup(Guid Id, Guid ChallengerId, Guid DefenderId, Guid D
     public Territory[] Transferred { get; init; } = [];
     public DateTimeOffset? Completed { get; init; }
 }
+public sealed record CategorySelection(Guid PlayerId, Guid[] Offer, Guid SelectedId);
 public sealed record ChallengerDecision(Guid PlayerId, bool Continue, Guid NextChallengerId);
 public sealed record TournamentState(Guid Id, Guid SetId, string SetName, TournamentPlayer[] Players,
     Territory[] Floor, Guid[] SelectionOrder, TournamentCategory[] Categories)
@@ -41,6 +42,7 @@ public sealed record TournamentState(Guid Id, Guid SetId, string SetName, Tourna
     public Guid? ActiveDuelId { get; init; }
     public Guid? ChampionId { get; init; }
     public ChallengerDecision[] Decisions { get; init; } = [];
+    public CategorySelection[] Selections { get; init; } = [];
     public Guid[] Commands { get; init; } = [];
     public int Seconds { get; init; } = 45;
     public int PassSeconds { get; init; } = 3;

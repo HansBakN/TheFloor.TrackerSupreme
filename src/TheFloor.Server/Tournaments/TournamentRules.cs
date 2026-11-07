@@ -58,6 +58,7 @@ public static class TournamentRules
                     Players = state.Players.Select(p => p.Id == state.SelectingPlayerId ? p with { CategoryId = ids[0] } : p).ToArray(),
                     Categories = state.Categories.Select(c => c.Id == ids[0] ? c with { Status = CategoryStatus.Selected, OwnerId = state.SelectingPlayerId } : c).ToArray(),
                     Offer = [], SelectingPlayerId = null,
+                    Selections = [.. state.Selections, new CategorySelection(state.SelectingPlayerId!.Value, state.Offer, ids[0])],
                 };
                 if (state.Phase == TournamentPhase.WinnerCategory) return picked with { Phase = TournamentPhase.WinnerDecision };
                 var index = state.SelectionIndex + 1;
@@ -116,18 +117,33 @@ public static class TournamentRules
     {
         if (state.Phase != TournamentPhase.DuelReady || state.CurrentMatchup is not { WinnerId: null } matchup)
             throw new ContentConflict("A duel cannot start in this tournament phase.");
-        return matchup.Duels.Length switch
+        var next = matchup.Duels.Length switch
         {
             0 => (matchup.DefenderCategoryId, matchup.DefenderId),
             1 => (matchup.ChallengerCategoryId, matchup.ChallengerId),
             2 when matchup.Duels.Select(d => d.WinnerId).Distinct().Count() == 2 && matchup.DeciderCategoryId is { } category => (category, matchup.ChallengerId),
             _ => throw new ContentConflict("No further duel is required in this matchup."),
         };
+        var entry = state.Categories.SingleOrDefault(c => c.Id == next.Item1);
+        if (matchup.Duels.Length < 2)
+        {
+            if (entry is not { Status: CategoryStatus.Selected } || entry.OwnerId != next.Item2 ||
+                state.Players.Single(p => p.Id == next.Item2).CategoryId != entry.Id)
+                throw new ContentConflict("The category owner must have a valid unplayed active category.");
+        }
+        else if (entry is not { Status: CategoryStatus.Available } || matchup.Bans.Length != 3 ||
+            matchup.Bans.Contains(entry.Id) || !matchup.DeciderOffer.Contains(entry.Id))
+            throw new ContentConflict("Complete the deciding category bans and selection before starting the duel.");
+        return next;
     }
 
     public static TournamentState Launch(TournamentState state, DuelSession duel)
     {
-        var (category, _) = NextDuel(state);
+        var (category, starter) = NextDuel(state);
+        var matchup = state.CurrentMatchup!;
+        if (duel.TournamentId != state.Id || duel.MatchupId != matchup.Id || duel.Configuration.CategoryId != category ||
+            duel.First != (starter == matchup.ChallengerId ? Player.A : Player.B))
+            throw new ContentConflict("The prepared duel does not match the tournament category, roles or required starter.");
         if (state.Categories.Single(c => c.Id == category).Status == CategoryStatus.Played)
             throw new ContentConflict("This category has already been played.");
         return state with { Phase = TournamentPhase.Playing, ActiveDuelId = duel.Id };
@@ -144,6 +160,11 @@ public static class TournamentRules
         if (state.Phase != TournamentPhase.Playing || state.ActiveDuelId != duel.Id ||
             state.CurrentMatchup is not { WinnerId: null } matchup || duel.Status != DuelStatus.Finished || duel.Winner is null)
             throw new ContentConflict("Only a finished current tournament duel with a winner can be recorded.");
+        var expectedCategory = matchup.Duels.Length == 0 ? matchup.DefenderCategoryId :
+            matchup.Duels.Length == 1 ? matchup.ChallengerCategoryId : matchup.DeciderCategoryId;
+        if (duel.TournamentId != state.Id || duel.MatchupId != matchup.Id || duel.Configuration.CategoryId != expectedCategory ||
+            duel.First != (matchup.Duels.Length == 0 ? Player.B : Player.A) || matchup.Duels.Length >= 3)
+            throw new ContentConflict("The duel result does not match this matchup's fixed category and starter.");
         var winner = duel.Winner == Player.A ? matchup.ChallengerId : matchup.DefenderId;
         var result = new TournamentDuel(duel.Id, duel.Configuration.CategoryId,
             duel.First == Player.A ? matchup.ChallengerId : matchup.DefenderId, winner, duel.Started, duel.Completed ?? now);
@@ -198,5 +219,32 @@ public static class TournamentRules
                 : c.OwnerId is not null) ||
             state.Players.Any(p => p.CategoryId is { } id && !state.Categories.Any(c => c.Id == id && c.Status == CategoryStatus.Selected && c.OwnerId == p.Id)))
             throw new ContentException("Invalid tournament category or ownership state. Restore a valid backup.");
+        var active = state.Players.Where(p => p.EliminationOrder is null).ToArray();
+        var matchup = state.CurrentMatchup;
+        var picking = state.Phase is TournamentPhase.InitialSelection or TournamentPhase.WinnerCategory or TournamentPhase.MatchupResult;
+        if (state.SelectionOrder.Length != 6 || state.SelectionOrder.Distinct().Count() != 6 ||
+            state.SelectionOrder.Any(id => !state.Players.Any(p => p.Id == id)) || state.SelectionIndex is < 0 or > 6 ||
+            (state.Phase == TournamentPhase.InitialSelection && (state.SelectionIndex >= 6 || state.SelectingPlayerId != state.SelectionOrder[state.SelectionIndex])) ||
+            (picking && (state.Offer.Length != 5 || state.Offer.Distinct().Count() != 5 ||
+                !active.Any(p => p.Id == state.SelectingPlayerId && p.CategoryId is null) ||
+                state.Offer.Any(id => !state.Categories.Any(c => c.Id == id && c.Status == CategoryStatus.Available)))) ||
+            (state.Phase != TournamentPhase.InitialSelection && state.SelectionIndex != 6) ||
+            (state.Phase == TournamentPhase.OpponentSelection && (!active.Any(p => p.Id == state.ChallengerId) || active.Any(p => p.CategoryId is null))) ||
+            (state.Phase == TournamentPhase.Playing && (state.ActiveDuelId is null || matchup is null || matchup.Completed is not null)) ||
+            (state.Phase != TournamentPhase.Playing && state.ActiveDuelId is not null) ||
+            (state.Phase == TournamentPhase.Completed && (active.Length != 1 || active[0].Id != state.ChampionId || state.Completed is null)) ||
+            state.Matchups.Select(m => m.Id).Distinct().Count() != state.Matchups.Length ||
+            state.Matchups.SelectMany(m => m.Duels).Select(d => d.CategoryId).Distinct().Count() != state.Matchups.Sum(m => m.Duels.Length) ||
+            state.Matchups.Any(m => m.ChallengerId == m.DefenderId || m.Duels.Length > 3 ||
+                m.Duels.Any(d => d.WinnerId != m.ChallengerId && d.WinnerId != m.DefenderId) ||
+                m.Duels.Where((d, i) => d.StartingPlayerId != (i == 0 ? m.DefenderId : m.ChallengerId) ||
+                    d.CategoryId != (i == 0 ? m.DefenderCategoryId : i == 1 ? m.ChallengerCategoryId : m.DeciderCategoryId)).Any() ||
+                (m.Completed is not null && (m.WinnerId is null || m.LoserId is null || m.Duels.Count(d => d.WinnerId == m.WinnerId) != 2))) ||
+            (state.Phase is TournamentPhase.DefenderBan or TournamentPhase.ChallengerBans or TournamentPhase.DefenderPick &&
+                (matchup is null || matchup.Duels.Length != 2 || matchup.Duels.Select(d => d.WinnerId).Distinct().Count() != 2 ||
+                 matchup.DeciderOffer.Length != 5 || matchup.DeciderOffer.Distinct().Count() != 5 ||
+                 matchup.Bans.Distinct().Count() != matchup.Bans.Length || matchup.Bans.Any(id => !matchup.DeciderOffer.Contains(id)) ||
+                 matchup.Bans.Length != (state.Phase == TournamentPhase.DefenderBan ? 0 : state.Phase == TournamentPhase.ChallengerBans ? 1 : 3))))
+            throw new ContentException("Invalid tournament phase or matchup history. Restore a valid backup or correct the latest result.");
     }
 }

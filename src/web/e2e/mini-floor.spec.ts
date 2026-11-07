@@ -59,6 +59,12 @@ async function launch(page: Page, display: Page, winner: 'challenger' | 'defende
   await expect(display.locator('.question-prompt')).toBeVisible()
   await expect(display.locator('body')).not.toContainText('Secret tournament answer')
   if (interact) {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await expect(page.getByRole('button', { name: /^Correct/ })).toBeInViewport()
+    await expect(page.getByTestId('phase-title')).toBeInViewport()
+    await page.screenshot({ path: 'test-results/mini-floor-live-host.png' })
+    await display.screenshot({ path: 'test-results/mini-floor-live-audience.png' })
     await page.getByRole('button', { name: /^Correct/ }).click()
     await page.getByRole('button', { name: /^Undo U/ }).click()
     await page.getByRole('button', { name: /^Resume/ }).click()

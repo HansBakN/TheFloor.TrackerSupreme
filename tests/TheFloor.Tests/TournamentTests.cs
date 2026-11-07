@@ -167,7 +167,11 @@ public sealed class TournamentTests : IDisposable
             Assert.All(state.Offer, id => Assert.Equal(CategoryStatus.Available, state.Categories.Single(c => c.Id == id).Status));
             AssertDurable(state);
             var rejected = state.Offer.Skip(1).ToArray();
+            var originalOffer = state.Offer;
             state = Act(state, "pick", categories: [state.Offer[0]]);
+            Assert.Equal(i + 1, state.Selections.Length);
+            Assert.Equal(originalOffer, state.Selections[^1].Offer);
+            Assert.Equal(originalOffer[0], state.Selections[^1].SelectedId);
             Assert.All(rejected, id => Assert.Equal(CategoryStatus.Available, state.Categories.Single(c => c.Id == id).Status));
             Assert.Equal(i + 1, state.Categories.Count(c => c.Status == CategoryStatus.Selected));
         }
@@ -491,6 +495,53 @@ public sealed class TournamentTests : IDisposable
         var selected = state.Offer[0];
         state = Act(state, "pick", categories: [selected]);
         Assert.Throws<ContentConflict>(() => Act(state, "pick", categories: [selected]));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SQLiteFailureCannotPartiallyCommitDuelLaunchOrResult(bool finishing)
+    {
+        var state = Challenge(Initial());
+        if (finishing) state = Act(state, "launch");
+        var beforeDuel = duels.Read();
+        using (var db = factory.CreateDbContext())
+            db.Database.ExecuteSqlRaw("CREATE TRIGGER reject_tournament BEFORE UPDATE ON Tournaments BEGIN SELECT RAISE(ABORT, 'simulated storage failure'); END;");
+        if (finishing)
+        {
+            var command = new DuelCommand(beforeDuel!.Id, Guid.NewGuid(), beforeDuel.Version, "end", Player.A);
+            Assert.Throws<DbUpdateException>(() => duels.Command(command));
+        }
+        else Assert.Throws<DbUpdateException>(() => Act(state, "launch"));
+        using (var db = factory.CreateDbContext())
+        {
+            Assert.Equal(JsonSerializer.Serialize(state), db.Tournaments.Find(state.Id)!.Payload);
+            Assert.Null(db.Tournaments.Find(state.Id)!.Undo);
+            Assert.Equal(finishing ? 1 : 0, db.Duels.Count());
+            db.Database.ExecuteSqlRaw("DROP TRIGGER reject_tournament");
+        }
+        Assert.Equal(beforeDuel?.Id, duels.Read()?.Id);
+        Assert.Equal(beforeDuel?.Status, duels.Read()?.Status);
+        if (finishing)
+        {
+            state = Finish(state, Player.A);
+            Assert.Single(state.CurrentMatchup!.Duels);
+        }
+        else Assert.Equal(TournamentPhase.Playing, Act(state, "launch").Phase);
+    }
+
+    [Fact]
+    public void PlayedCategoriesCannotBeLaunchedAgainAndDuplicateDeleteIsSafe()
+    {
+        var state = Challenge(Initial());
+        var next = TournamentRules.NextDuel(state);
+        var invalid = state with { Categories = state.Categories.Select(c => c.Id == next.CategoryId ? c with { Status = CategoryStatus.Played, OwnerId = null } : c).ToArray() };
+        // Launch rejects replay independently of frontend and command versions.
+        var template = new DuelSession(Guid.NewGuid(), state.Id, state.SetId, "test", new DuelConfiguration("A", "B", next.CategoryId), [], Player.B, Player.B, 1, 1);
+        Assert.Throws<ContentConflict>(() => TournamentRules.Launch(invalid, template));
+        var command = new TournamentCommand(state.Id, Guid.NewGuid(), state.Version, "delete", Confirm: true);
+        Assert.Null(tournaments.Command(command));
+        Assert.Null(tournaments.Command(command));
     }
 
     public void Dispose()

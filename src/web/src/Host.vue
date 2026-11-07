@@ -68,7 +68,7 @@ useShortcuts(can, command)
 </script>
 
 <template>
-  <main class="host-workspace" :class="embedded ? 'panel embedded-duel' : 'workspace'">
+  <component :is="embedded ? 'section' : 'main'" class="host-workspace" :class="embedded ? 'panel embedded-duel' : 'workspace'">
     <header v-if="!embedded" class="page-header">
       <div><p class="eyebrow">Live control</p><h1>Host dashboard</h1></div>
       <div class="actions">
@@ -161,5 +161,5 @@ useShortcuts(can, command)
       </details>
     </section>
     <div class="mt-3"><AudienceSetup :audience="live.audience" /></div>
-  </main>
+  </component>
 </template>
