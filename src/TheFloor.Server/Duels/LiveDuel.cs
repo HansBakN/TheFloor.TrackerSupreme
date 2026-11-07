@@ -7,7 +7,7 @@ namespace TheFloor.Duels;
 public sealed record PublicQuestion(Guid Id, string Type, string? Prompt, string? MediaUrl);
 public sealed record AudienceDuel(Guid Id, long Version, DuelStatus Status, string CategoryName,
     string PlayerA, string PlayerB, double AMilliseconds, double BMilliseconds, Player Active,
-    Player? Winner, PublicQuestion? Question, long SampledAt, Guid? AudioDisplayId);
+    Player? Winner, PublicQuestion? Question, long SampledAt, Guid? AudioDisplayId, double PassMilliseconds);
 public sealed record HostDuel(AudienceDuel Duel, Guid CategorySetId, DuelConfiguration Configuration,
     string? Answer, string[] Alternatives, string? Notes, bool CanUndo, bool Exhausted);
 public sealed record HostState(HostDuel? Session, int AudienceCount, AudienceStatus Audience);
@@ -71,21 +71,21 @@ public sealed class LiveDuel(DuelService duels, AudienceConnections connections,
     }
 
     private HostState HostProjection(DuelSession? session, AudienceStatus audience) => new(session is null ? null :
-        new HostDuel(Project(session, audience.AudioDisplayId)!, session.CategorySetId, session.Configuration,
+        new HostDuel(Project(session, audience.AudioDisplayId, host: true)!, session.CategorySetId, session.Configuration,
             session.Current?.Answer, session.Current?.Alternatives ?? [], session.Current?.Notes,
             session.Undo is not null, session.Exhausted), audience.Displays.Length, audience);
 
-    private AudienceDuel? Project(DuelSession? session, Guid? audioDisplayId)
+    private AudienceDuel? Project(DuelSession? session, Guid? audioDisplayId, bool host = false)
     {
         if (session is null) return null;
-        var question = session.Current;
+        var question = (host && session.PassTicks == 0 || session.AudienceQuestionVisible) ? session.Current : null;
         return new AudienceDuel(session.Id, session.Version, session.Status, session.CategoryName,
             session.Configuration.PlayerA, session.Configuration.PlayerB,
             TimeSpan.FromTicks(session.ATicks).TotalMilliseconds, TimeSpan.FromTicks(session.BTicks).TotalMilliseconds,
             session.Active, session.Winner, question is null ? null :
                 new PublicQuestion(question.Id, question.Type, question.Prompt, question.Media is null ? null :
-                    $"/api/display/{session.Id:D}/media/{question.Id:D}"),
-            time.GetUtcNow().ToUnixTimeMilliseconds(), audioDisplayId);
+                    $"/api/{(host ? "host" : "display")}/{session.Id:D}/media/{question.Id:D}"),
+            time.GetUtcNow().ToUnixTimeMilliseconds(), audioDisplayId, TimeSpan.FromTicks(session.PassTicks).TotalMilliseconds);
     }
 }
 
@@ -139,6 +139,11 @@ public static class DuelEndpoints
         app.MapGet("/api/display/{id:guid}/media/{question:guid}", (Guid id, Guid question, DuelService service) =>
         {
             var file = service.CurrentMedia(id, question);
+            return Results.File(file, Media.ContentType(file), enableRangeProcessing: true);
+        });
+        app.MapGet("/api/host/{id:guid}/media/{question:guid}", (Guid id, Guid question, DuelService service) =>
+        {
+            var file = service.CurrentMedia(id, question, host: true);
             return Results.File(file, Media.ContentType(file), enableRangeProcessing: true);
         });
         app.MapGet("/api/host/pairing", (IServer server) => AudiencePairing.Origins(server));

@@ -53,6 +53,8 @@ test('rehearses on a separate display, selects one audio output, and saves reusa
   await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption(categoryId)
   await page.getByRole('button', { name: 'Prepare duel' }).click()
   await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
+  await page.getByRole('button', { name: /^Pause / }).click()
   const before = (await (await request.get('/api/host/state')).json()).session.duel
 
   const first = await browser.newContext()
@@ -118,7 +120,7 @@ test('rehearses on a separate display, selects one audio output, and saves reusa
     await expect(secondDisplay.getByText('Listen to the test clip.')).toBeVisible()
     const after = (await (await request.get('/api/host/state')).json()).session.duel
     expect([after.id, after.version, after.status, after.question.id]).toEqual(
-      [before.id, before.version, 'ready', questionId])
+      [before.id, before.version, 'paused', questionId])
   } finally {
     await first.close()
     await second.close()

@@ -27,9 +27,10 @@ test('audience receives a restricted projection and observes server-side expirat
     const command = { sessionId: session.duel.id, version: session.duel.version, commandId: crypto.randomUUID(), action: 'start' }
     expect((await audience.post('/api/host/command', { data: command })).status()).toBe(401)
     const publicText = await (await audience.get('/api/display/state')).text()
-    expect(publicText).toContain('Public prompt?')
+    expect(JSON.parse(publicText).question).toBeNull()
     expect(publicText).not.toContain('Secret')
     expect((await request.post('/api/host/command', { data: command })).ok()).toBeTruthy()
+    expect((await (await audience.get('/api/display/state')).json()).question.prompt).toBe('Public prompt?')
     await expect.poll(async () => (await (await audience.get('/api/display/state')).json()).status).toBe('finished')
     const finished = await (await audience.get('/api/display/state')).json()
     expect(finished.winner).toBe('b')

@@ -17,8 +17,18 @@ public static class DuelRules
     public static DuelSession Settle(DuelSession state, TimeSpan elapsed, DateTimeOffset now)
     {
         if (state.Status != DuelStatus.Running) return state;
+        // Exhaustion pauses exactly when the last pass completes, even after a delayed tick.
+        if (state.Exhausted && state.PassTicks > 0)
+            elapsed = TimeSpan.FromTicks(Math.Min(elapsed.Ticks, state.PassTicks));
         var ticks = Math.Max(0, Remaining(state) - Math.Max(0, elapsed.Ticks));
-        var settled = SetRemaining(state, ticks);
+        var passTicks = Math.Max(0, state.PassTicks - Math.Max(0, elapsed.Ticks));
+        var settled = SetRemaining(state, ticks) with { PassTicks = passTicks };
+        if (state.PassTicks > 0 && passTicks == 0)
+            settled = settled with
+            {
+                Version = state.Version + 1,
+                Status = state.Exhausted ? DuelStatus.Paused : DuelStatus.Running,
+            };
         return ticks == 0
             ? Finish(settled with { Version = state.Version + 1, Undo = null }, Other(state.Active), now)
             : settled;
@@ -36,16 +46,16 @@ public static class DuelRules
         {
             "start" when state.Status == DuelStatus.Ready => state with { Status = DuelStatus.Running, Started = now },
             "pause" when state.Status == DuelStatus.Running => state with { Status = DuelStatus.Paused },
-            "resume" when state.Status == DuelStatus.Paused && !state.Exhausted =>
+            "resume" when state.Status == DuelStatus.Paused && (!state.Exhausted || state.PassTicks > 0) =>
                 state with { Status = DuelStatus.Running, Started = state.Started ?? now },
-            "correct" when state.Status == DuelStatus.Running => Advance(state, correct: true, now),
-            "pass" when state.Status == DuelStatus.Running => Advance(state, correct: false, now),
+            "correct" when state.Status == DuelStatus.Running && state.PassTicks == 0 => Advance(state, correct: true),
+            "pass" when state.Status == DuelStatus.Running && state.PassTicks == 0 => Advance(state, correct: false),
             "undo" when state.Undo is { } undo => state with
             {
                 Index = undo.Index, Active = undo.Active, ATicks = undo.ATicks, BTicks = undo.BTicks,
-                Status = DuelStatus.Paused, Undo = null, Winner = null, Completed = null,
+                Status = DuelStatus.Paused, Undo = null, Winner = null, Completed = null, PassTicks = 0,
             },
-            "append" when state.Status == DuelStatus.Paused && state.Exhausted => Append(state, append()),
+            "append" when state.Status == DuelStatus.Paused && state.Exhausted && state.PassTicks == 0 => Append(state, append()),
             "end" when state.Status != DuelStatus.Finished && (command.Winner is null || Enum.IsDefined(command.Winner.Value)) =>
                 Finish(state with { Undo = null }, command.Winner, now),
             "restart" => Restart(state),
@@ -54,7 +64,7 @@ public static class DuelRules
         return next with { Version = state.Version + 1, Commands = [.. state.Commands, command.CommandId] };
     }
 
-    private static DuelSession Advance(DuelSession state, bool correct, DateTimeOffset now)
+    private static DuelSession Advance(DuelSession state, bool correct)
     {
         var next = state with
         {
@@ -62,12 +72,8 @@ public static class DuelRules
             Index = state.Index + 1,
         };
         if (correct) next = next with { Active = Other(state.Active) };
-        else
-        {
-            next = SetRemaining(next, Math.Max(0, Remaining(next) - TimeSpan.FromSeconds(state.Configuration.PassSeconds).Ticks));
-            if (Remaining(next) == 0) return Finish(next, Other(next.Active), now);
-        }
-        return next.Exhausted ? next with { Status = DuelStatus.Paused } : next;
+        else next = next with { PassTicks = TimeSpan.FromSeconds(state.Configuration.PassSeconds).Ticks };
+        return next.Exhausted && next.PassTicks == 0 ? next with { Status = DuelStatus.Paused } : next;
     }
 
     private static DuelSession Append(DuelSession state, Question[] questions)
@@ -82,12 +88,12 @@ public static class DuelRules
         return state with
         {
             Status = DuelStatus.Ready, Active = state.First, ATicks = ticks, BTicks = ticks, Index = 0,
-            Undo = null, Winner = null, Started = null, Completed = null,
+            Undo = null, Winner = null, Started = null, Completed = null, PassTicks = 0,
         };
     }
 
     private static DuelSession Finish(DuelSession state, Player? winner, DateTimeOffset now) =>
-        state with { Status = DuelStatus.Finished, Winner = winner, Completed = now };
+        state with { Status = DuelStatus.Finished, Winner = winner, Completed = now, PassTicks = 0 };
 
     private static long Remaining(DuelSession state) => state.Active == Player.A ? state.ATicks : state.BTicks;
 

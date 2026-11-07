@@ -34,13 +34,13 @@ function can(action: DuelAction) {
   switch (action) {
     case 'start': return session.duel.status === 'ready'
     case 'correct':
-    case 'pass':
+    case 'pass': return session.duel.status === 'running' && !session.duel.passMilliseconds
     case 'pause': return session.duel.status === 'running'
-    case 'resume': return session.duel.status === 'paused' && !session.exhausted
+    case 'resume': return session.duel.status === 'paused' && (!session.exhausted || !!session.duel.passMilliseconds)
     case 'undo': return session.canUndo
-    case 'append': return session.duel.status === 'paused' && session.exhausted
+    case 'append': return session.duel.status === 'paused' && session.exhausted && !session.duel.passMilliseconds
     case 'end': return session.duel.status !== 'finished'
-    case 'return': return session.duel.status === 'finished'
+    case 'return': return true
     case 'restart': return true
   }
 }
@@ -49,6 +49,7 @@ function command(action: DuelAction, winner?: Player) {
   if (!can(action)) return
   if (action === 'restart' && !window.confirm('Restart the duel with fresh clocks?')) return
   if (action === 'end' && !window.confirm(winner ? 'End the duel and declare the selected winner?' : 'End the duel without a winner?')) return
+  if (action === 'return' && duel.value?.status !== 'finished' && !window.confirm('End the duel without a winner and return to setup?')) return
   void live.command(action, winner)
 }
 
@@ -124,16 +125,17 @@ useShortcuts(can, command)
         <button v-if="duel.status !== 'paused'" :disabled="!can('pause')" @click="command('pause')">Pause <kbd>Esc</kbd></button>
         <button v-else :disabled="!can('resume')" @click="command('resume')">Resume <kbd>R</kbd></button>
         <button :disabled="!can('undo')" @click="command('undo')">Undo <kbd>U</kbd></button>
-        <button v-if="duel.status === 'finished'" :disabled="!can('return')" @click="command('return')">Return to setup</button>
+        <button :disabled="!can('return')" @click="command('return')">{{ duel.status === 'finished' ? 'Return to setup' : 'End duel and return to setup' }}</button>
       </div>
 
       <p v-if="duel.status === 'finished'" class="notice" role="status">
         {{ duel.winner ? (duel.winner === 'a' ? duel.playerA : duel.playerB) + ' wins!' : 'Duel ended.' }}
       </p>
-      <div v-if="live.host?.exhausted && duel.status === 'paused'" class="notice">
+      <div v-if="live.host?.exhausted && duel.status === 'paused' && !duel.passMilliseconds" class="notice">
         <p>All snapshot questions have been used. Add new questions to the category, then bring them into this duel.</p>
         <button :disabled="!can('append')" @click="command('append')">Include new questions</button>
       </div>
+      <p v-if="duel.passMilliseconds" class="notice" role="status">Pass lockout — waiting for the next question.</p>
       <div v-if="duel.question" class="host-question">
         <section class="panel">
           <h3 class="eyebrow">Question preview</h3>

@@ -7,7 +7,7 @@ const sample: ClockSample = {
   duel: {
     id: 'duel', version: 3, status: 'running', categoryName: 'Geography',
     playerA: 'Martin', playerB: 'Thomas', aMilliseconds: 2500, bMilliseconds: 5000,
-    active: 'a', winner: null, question: null, sampledAt: 0,
+    active: 'a', winner: null, question: null, passMilliseconds: 0, sampledAt: 0,
   },
 }
 
