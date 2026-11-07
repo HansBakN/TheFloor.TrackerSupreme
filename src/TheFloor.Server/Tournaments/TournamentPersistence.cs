@@ -26,6 +26,7 @@ public static class TournamentPersistence
         var record = db.Tournaments.Find(id) ?? throw new ContentConflict("The tournament for this duel is missing.");
         var state = Read(record);
         if (state.Phase != TournamentPhase.Playing || state.ActiveDuelId != duel.Id) return;
+        var previousVersion = state.Version;
         if (duel.Started is not null || duel.Status == DuelStatus.Finished && duel.Winner is not null)
         {
             var consumed = TournamentRules.ConsumeCategory(state, duel.Configuration.CategoryId);
@@ -34,7 +35,7 @@ public static class TournamentPersistence
         }
         if (duel.Status != DuelStatus.Finished || duel.Winner is null)
         {
-            record.Payload = JsonSerializer.Serialize(state);
+            if (state.Version != previousVersion) record.Payload = JsonSerializer.Serialize(state);
             return;
         }
         var next = TournamentRules.RecordResult(state, duel, Random.Shared, now) with { Version = state.Version + 1 };
