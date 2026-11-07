@@ -30,8 +30,8 @@ Authority: the November 7 user follow-ups and [approved amendment](requirements-
 
 ## Delivery
 - [x] Update README/architecture/deployment and progress with exact verified state and limitations.
-- [ ] All local checks and Linux/Windows CI pass; reviewed PRs merged; pushed main clean; issues accurate/closed only after acceptance verified.
-- [ ] Every box linked to implementation/test evidence, with final completeness report and no undisclosed omissions.
+- [x] All local checks and Linux/Windows CI pass; reviewed PRs merged; pushed main clean; issues accurate/closed only after acceptance verified.
+- [x] Every box linked to implementation/test evidence, with final completeness report and no undisclosed omissions.
 
 ## Implementation and verification evidence
 
@@ -50,3 +50,10 @@ Authority: the November 7 user follow-ups and [approved amendment](requirements-
 Local verification at the audit checkpoint: 126 xUnit cases (23 additions), 28 Vitest cases (6 additions), strict TypeScript checking, locked restore, warning-free production publish, whitespace validation and 15 Playwright workflows (including the new full seven-player workflow). The final full browser rerun also passed all 15 workflows with the reviewed single-settle broadcast change. SharpLens reports no errors/warnings. The original specification hashes remain unchanged.
 
 Physical TV/projector hardware and sudden power-loss behavior are outside this test setup. Unfinished duel recovery continues to use its durable clock checkpoint. Very large configured boards/participant lists may require scrolling; no alternate tournament rules or formats were added.
+
+
+## Delivery evidence
+
+The complete implementation is integrated into `main` as `942c666` through [reviewed PR #60](https://github.com/HansBakN/TheFloor.TrackerSupreme/pull/60). [Its CI validation](https://github.com/HansBakN/TheFloor.TrackerSupreme/actions/runs/42389910907) passed documentation, Ubuntu and Windows builds, backend/frontend tests and all browser workflows. The autonomous review is recorded on that PR; the merged feature branch was deleted and the local checkout synchronized cleanly.
+
+All 18 follow-up checklist items have implementation/verification evidence above. Local final results are 126 backend tests, 28 frontend tests and 15 browser workflows passing, with warning-free production publish, strict type checking, unchanged original spec hashes and inspected 1080p screenshots. Both requested additions are implemented; no known requested functionality is deferred. [Issues #58](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/58) and [#59](https://github.com/HansBakN/TheFloor.TrackerSupreme/issues/59) retain the acceptance and delivery history.
