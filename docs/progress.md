@@ -94,4 +94,4 @@ The November 7, 2026 user request supersedes the original prepared-question and 
 
 Local verification: 64 xUnit tests, 14 Vitest tests, 10 Playwright workflows, strict TypeScript checks, locked restore, warning-free Release build and production publish passed. Playwright uses isolated data and separate host/audience contexts, checks public payloads and media authorization, measures the full three-second lockout, and exercises confirmation dismissal and direct return to setup. Visual inspection covered the 1920×1080 lockout screen; the existing laptop control visibility check remains in the browser suite.
 
-Delivery is on branch `fix/50-duel-flow`; exact-head CI and pull-request integration remain the next checkpoint.
+[PR #51](https://github.com/HansBakN/TheFloor.TrackerSupreme/pull/51) contains the delivery and tracks CI results for issue #50. All three requested corrections are implemented and locally verified; no additional implementation work remains for this issue.
