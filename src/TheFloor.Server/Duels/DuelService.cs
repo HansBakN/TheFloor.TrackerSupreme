@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TheFloor.Content;
+using TheFloor.Tournaments;
 
 namespace TheFloor.Duels;
 
@@ -19,6 +20,7 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
             Settle(time.GetTimestamp(), forceCheckpoint: false);
             if (state is { Status: not DuelStatus.Finished })
                 throw new ContentConflict("Finish the current duel before preparing another.");
+            TournamentPersistence.RequireStandaloneAllowed(database);
             DuelRules.Validate(configuration);
             var next = library.Exclusive(() =>
             {
@@ -54,6 +56,7 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
             var current = Settle(stamp, forceCheckpoint: false);
             if (command.CommandId == Guid.Empty) throw new ContentException("A command ID is required.");
             if (current?.Commands.Contains(command.CommandId) == true) return current;
+            TournamentPersistence.RequireDuelCommand(database, current, command);
             if (command.Action == "return")
             {
                 if (current?.Id != command.SessionId)
@@ -159,7 +162,8 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
         loaded = true;
     }
 
-    private void Persist(DuelSession? next, long stamp, DuelSession? archived = null)
+    private void Persist(DuelSession? next, long stamp, DuelSession? archived = null,
+        Action<AppDb, DuelSession?>? updateTournament = null)
     {
         using var db = database.CreateDbContext();
         var previous = db.Duels.SingleOrDefault(row => row.Current);
@@ -176,6 +180,8 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
             if (previous is not null && previous.Id == next.Id) previous.Payload = payload;
             else db.Duels.Add(new DuelRecord { Id = next.Id, Current = true, Payload = payload });
         }
+        updateTournament?.Invoke(db, next);
+        if (next is not null) TournamentPersistence.RecordFinished(db, next, time.GetUtcNow());
         db.SaveChanges();
         state = next;
         anchor = stamp;
@@ -232,6 +238,60 @@ public sealed class DuelService(IDbContextFactory<AppDb> database, ContentLibrar
         {
             foreach (var file in files) File.Delete(file);
             throw;
+        }
+    }
+
+    // Tournament and duel mutations share this reentrant gate; database changes share SaveChanges.
+    public T Exclusive<T>(Func<T> action)
+    {
+        lock (gate) return action();
+    }
+
+    public Category SnapshotCategory(Guid tournamentId, Category category) =>
+        category with { Questions = Snapshot(tournamentId, category.Id, category.Questions.Where(q => q.Enabled).ToArray()) };
+
+    public DuelSession PrepareTournament(TournamentState tournament, Category category,
+        Action<AppDb, DuelSession?> save)
+    {
+        lock (gate)
+        {
+            Load();
+            Settle(time.GetTimestamp(), false);
+            if (state is { Status: not DuelStatus.Finished })
+                throw new ContentConflict("Finish the current duel before starting the tournament duel.");
+            var matchup = tournament.CurrentMatchup!;
+            var (categoryId, starterId) = TournamentRules.NextDuel(tournament);
+            if (category.Id != categoryId || category.Questions.Length == 0)
+                throw new ContentException("The tournament category snapshot is unavailable.");
+            var configuration = new DuelConfiguration(
+                tournament.Players.Single(p => p.Id == matchup.ChallengerId).Name,
+                tournament.Players.Single(p => p.Id == matchup.DefenderId).Name,
+                categoryId, tournament.Seconds, tournament.PassSeconds,
+                starterId == matchup.ChallengerId ? StartingPlayer.A : StartingPlayer.B, tournament.Order);
+            var questions = category.Questions.ToArray();
+            if (configuration.Order == QuestionOrder.Shuffled) Random.Shared.Shuffle(questions);
+            var first = configuration.Starter == StartingPlayer.A ? Player.A : Player.B;
+            var ticks = TimeSpan.FromSeconds(configuration.Seconds).Ticks;
+            var next = new DuelSession(Guid.NewGuid(), tournament.Id, tournament.SetId, category.Name,
+                configuration, questions, first, first, ticks, ticks)
+            { TournamentId = tournament.Id, MatchupId = matchup.Id };
+            Persist(next, time.GetTimestamp(), updateTournament: save);
+            return next;
+        }
+    }
+
+    public void ReplaceTournamentDuel(Guid tournamentId, DuelSession? replacement, Action<AppDb, DuelSession?> save)
+    {
+        lock (gate)
+        {
+            Load();
+            Settle(time.GetTimestamp(), false);
+            if (state is { Status: not DuelStatus.Finished } current && current.TournamentId != tournamentId)
+                throw new ContentConflict("Finish the standalone duel before correcting or restarting this tournament.");
+            var archived = state is { } old && old.TournamentId == tournamentId
+                ? old with { Status = DuelStatus.Finished, Winner = null, Completed = time.GetUtcNow(), Undo = null, PassTicks = 0 }
+                : null;
+            Persist(replacement, time.GetTimestamp(), archived, save);
         }
     }
 

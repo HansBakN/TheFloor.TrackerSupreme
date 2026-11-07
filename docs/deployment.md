@@ -37,3 +37,11 @@ Set `THEFLOOR_DATA_DIR` before starting the server to choose a persistent direct
 The server restores an unfinished duel in the Paused state. Confirm the question and clocks on the dashboard, then choose **Resume**. If the process was killed abruptly, the clocks restore from the last saved checkpoint. The audience display reconnects to the same server address.
 
 Use the same server process for all views. Start a separate instance with a different external data directory and port when testing or rehearsing.
+
+## Tournament recovery and backup
+
+Mini Floor uses the same external data root as standalone duels. Include `state/app.db` and the complete `state/snapshots/` directory when backing up or moving tournaments; stop the server before copying. Category YAML alone does not contain tournament progress. The application upgrades existing SQLite installations in place by adding tournament tables.
+
+Open **Mini Floor** to find unfinished tournaments and completed history. An interrupted live duel restores paused with its saved question order, media, clocks and explicit starting player. Resume it through Mini Floor. Category offers, bans and challenger decisions do not reroll on restart. A frozen tournament pool remains usable even if its source category set later changes.
+
+The minimum pool is 19 distinct eligible categories. The bundled small demo sets are intentionally insufficient: add or import event categories before starting Mini Floor. No online service or separate participant device is required.
